@@ -57,8 +57,8 @@ export default function Sidebar({
         width: W,
         minWidth: W,
         maxWidth: W,
-        height: '100vh',
-        maxHeight: '100vh',
+        height: '100%',
+        maxHeight: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -302,21 +302,37 @@ export default function Sidebar({
             const isMaster = user?.isMaster === true || user?.role === 'SUPER_ADMIN' || user?.email === 'admin@talentai.com';
             const isDemo = !isMaster && (user?.isDemoGuest === true || user?.email === 'demo.guest@talentai.com');
             return (
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{
-                  fontSize: '0.78rem', fontWeight: 700, margin: 0,
-                  color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {user?.name || 'User'}
-                </p>
-                <p style={{
-                  fontSize: '0.65rem', margin: 0,
-                  color: isMaster ? '#a855f7' : isDemo ? '#f59e0b' : 'var(--text-muted)',
-                  fontWeight: (isMaster || isDemo) ? 800 : 500
-                }}>
-                  {isMaster ? '👑 Master Owner VIP' : isDemo ? '⚡ Demo Pass' : user?.role === 'COMPANY_ADMIN' ? 'Admin' : user?.role || 'Student'}
-                </p>
-              </div>
+              <>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{
+                    fontSize: '0.78rem', fontWeight: 700, margin: 0,
+                    color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {user?.name || 'User'}
+                  </p>
+                  <p style={{
+                    fontSize: '0.65rem', margin: 0,
+                    color: isMaster ? '#a855f7' : isDemo ? '#f59e0b' : 'var(--text-muted)',
+                    fontWeight: (isMaster || isDemo) ? 800 : 500
+                  }}>
+                    {isMaster ? '👑 Master VIP' : isDemo ? '⚡ Demo Pass' : user?.role === 'COMPANY_ADMIN' ? 'Admin' : user?.role || 'Student'}
+                  </p>
+                </div>
+                <button
+                  onClick={onLogout}
+                  title="Log Out"
+                  style={{
+                    padding: '5px 8px', borderRadius: 8, border: 'none', background: 'rgba(239,68,68,0.1)',
+                    cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: '0.68rem', fontWeight: 800, flexShrink: 0, transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                >
+                  <LogOut style={{ width: 12, height: 12 }} />
+                  <span>Exit</span>
+                </button>
+              </>
             );
           })()}
         </div>
@@ -332,17 +348,18 @@ export default function Sidebar({
             justifyContent: collapsed ? 'center' : 'flex-start',
             padding: collapsed ? '9px 0' : '9px 13px',
             width: '100%', borderRadius: 10,
-            border: 'none', background: 'transparent',
-            cursor: 'pointer', color: 'var(--text-muted)',
-            fontSize: '0.84rem', fontWeight: 500, transition: 'all 0.15s',
+            border: '1px solid rgba(239,68,68,0.2)',
+            background: 'rgba(239,68,68,0.06)',
+            cursor: 'pointer', color: '#dc2626',
+            fontSize: '0.84rem', fontWeight: 700, transition: 'all 0.15s',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(220,38,38,0.08)';
-            e.currentTarget.style.color = '#dc2626';
+            e.currentTarget.style.background = 'rgba(220,38,38,0.15)';
+            e.currentTarget.style.color = '#b91c1c';
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--text-muted)';
+            e.currentTarget.style.background = 'rgba(239,68,68,0.06)';
+            e.currentTarget.style.color = '#dc2626';
           }}
         >
           <LogOut style={{ width: 16, height: 16, flexShrink: 0 }} />

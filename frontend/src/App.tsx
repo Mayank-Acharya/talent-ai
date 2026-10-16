@@ -13,7 +13,7 @@ import Session from './pages/Session';
 import Arena from './pages/Arena';
 import SolvedTracker from './pages/SolvedTracker';
 import TrialPaywall from './components/TrialPaywall';
-import { Sparkles, Crown, Lock, ArrowRight } from 'lucide-react';
+import { Sparkles, Crown, Lock, ArrowRight, LogOut } from 'lucide-react';
 
 const CORE_TABS = ['questions', 'tracker', 'arena', 'resume-parser'];
 
@@ -244,9 +244,19 @@ export default function App() {
               👑 <strong style={{ color: '#ffffff', fontWeight: 800 }}>Master Owner Lifetime Access:</strong> Unlimited permanent access active. Zero trial limits or billing charges apply to you.
             </span>
           </div>
-          <span className="text-[10px] uppercase font-black tracking-wider text-purple-200 bg-purple-500/30 px-2.5 py-0.5 rounded-full border border-purple-400/40" style={{ color: '#f3e8ff' }}>
-            Creator VIP
-          </span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] uppercase font-black tracking-wider text-purple-200 bg-purple-500/30 px-2.5 py-0.5 rounded-full border border-purple-400/40" style={{ color: '#f3e8ff' }}>
+              Creator VIP
+            </span>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 rounded-lg bg-red-600/90 hover:bg-red-500 text-white font-extrabold text-[11px] transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ml-1"
+              title="Sign out of TalentAI"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log Out</span>
+            </button>
+          </div>
         </div>
       )}
 
