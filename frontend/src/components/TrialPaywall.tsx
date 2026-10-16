@@ -21,8 +21,8 @@ export default function TrialPaywall({ onUnlockAsMaster, onPaymentSuccess, onNav
 
   // Config from backend
   const [paymentConfig, setPaymentConfig] = useState({
-    upiId: 'talentai.payments@okaxis',
-    upiName: 'TalentAI Education',
+    upiId: '30062006@cnrb',
+    upiName: 'MAYANK KUMAR ACHARYA',
     razorpayKeyId: '',
     razorpayEnabled: false,
   });

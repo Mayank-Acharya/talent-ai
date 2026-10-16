@@ -16,8 +16,8 @@ if (STRIPE_SECRET_KEY) {
 // 0. Get Payment Gateway & UPI Configuration
 router.get('/payment-config', async (_req, res: Response) => {
   return res.json({
-    upiId: process.env.OWNER_UPI_ID || 'talentai.payments@okaxis',
-    upiName: process.env.OWNER_UPI_NAME || 'TalentAI Education',
+    upiId: process.env.UPI_ID || process.env.OWNER_UPI_ID || '30062006@cnrb',
+    upiName: process.env.UPI_NAME || process.env.OWNER_UPI_NAME || 'MAYANK KUMAR ACHARYA',
     razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
     razorpayEnabled: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
   });
