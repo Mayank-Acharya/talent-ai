@@ -1,0 +1,245 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Company {
+  id                String             @id @default(uuid())
+  name              String
+  logoUrl           String?
+  primaryColor      String             @default("#4F46E5")
+  createdAt         DateTime           @default(now())
+  users             User[]
+  interviews        Interview[]
+  candidates        Candidate[]
+  subscriptions     Subscription[]
+  questionBankItems QuestionBankItem[]
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         String // "SUPER_ADMIN", "COMPANY_ADMIN", "RECRUITER", "INTERVIEWER"
+  companyId    String?
+  company      Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  auditLogs    AuditLog[]
+}
+
+model Candidate {
+  id                   String             @id @default(uuid())
+  email                String
+  name                 String
+  phone                String?
+  status               String             @default("NEW")
+  companyId            String
+  company              Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  resumeUrl            String?
+  resumeParsedText     String?
+  resumeSummary        String?
+  resumeSkills         String?
+  resumeScore          Int? // ATS score 0-100
+  resumeScoreBreakdown String? // JSON breakdown
+  jobTitle             String? // Target job title for ATS scoring
+  createdAt            DateTime           @default(now())
+  sessions             InterviewSession[]
+
+  @@unique([email, companyId])
+}
+
+model Interview {
+  id              String             @id @default(uuid())
+  title           String
+  description     String?
+  durationMinutes Int                @default(30)
+  companyId       String
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  isTemplate      Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  questions       Question[]
+  sessions        InterviewSession[]
+}
+
+model Question {
+  id               String    @id @default(uuid())
+  title            String?
+  text             String
+  type             String // "CODING", "DSA", "HR", "APTITUDE", "SYSTEM_DESIGN"
+  difficulty       String    @default("MEDIUM") // "EASY", "MEDIUM", "HARD"
+  timeLimitSeconds Int       @default(120)
+  codeSnippet      String?
+  testCases        String? // JSON string
+  expectedGuide    String?
+  examples         String? // JSON string
+  constraints      String? // JSON string
+  optimalTime      String?
+  optimalSpace     String?
+  optimalApproach  String?
+  leetcodeId       Int? // LeetCode problem ID
+  leetcodeSlug     String? // LeetCode problem slug
+  leetcodeTags     String? // JSON array of tags
+  interviewId      String
+  interview        Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  answers          Answer[]
+}
+
+model InterviewSession {
+  id               String            @id @default(uuid())
+  token            String            @unique
+  candidateId      String
+  candidate        Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interviewId      String
+  interview        Interview         @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  status           String            @default("PENDING") // "PENDING", "STARTED", "COMPLETED", "EXPIRED"
+  startedAt        DateTime?
+  completedAt      DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime          @default(now())
+  answers          Answer[]
+  plagiarismReport PlagiarismReport?
+}
+
+model Answer {
+  id          String           @id @default(uuid())
+  sessionId   String
+  session     InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  videoPath   String?
+  answerText  String?
+  codeContent String?
+  createdAt   DateTime         @default(now())
+  evaluation  Evaluation?
+}
+
+model Evaluation {
+  id               String   @id @default(uuid())
+  answerId         String   @unique
+  answer           Answer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  score            Int
+  feedback         String
+  strengths        String
+  weaknesses       String
+  improvements     String
+  overrideScore    Int?
+  overrideFeedback String?
+  evaluatedAt      DateTime @default(now())
+}
+
+model PlagiarismReport {
+  id                  String           @id @default(uuid())
+  sessionId           String           @unique
+  session             InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tabSwitchCount      Int              @default(0)
+  copyPasteCount      Int              @default(0)
+  exitFullScreenCount Int              @default(0)
+  violationsLog       String           @default("[]") // JSON string
+  createdAt           DateTime         @default(now())
+}
+
+model Subscription {
+  id                   String    @id @default(uuid())
+  companyId            String
+  company              Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 String    @default("FREE") // "FREE", "GROWTH", "ENTERPRISE"
+  status               String    @default("ACTIVE")
+  expiresAt            DateTime?
+  createdAt            DateTime  @default(now())
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  userId      String?
+  candidateId String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model QuestionBankItem {
+  id              String   @id @default(uuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category        String   // "CODING", "DSA", "SYSTEM_DESIGN", "HR", "APTITUDE"
+  difficulty      String   @default("MEDIUM")
+  title           String
+  text            String
+  examples        String?  // JSON string
+  constraints     String?  // JSON string
+  code            String?
+  optimalTime     String?
+  optimalSpace    String?
+  optimalApproach String?
+  guide           String?
+  leetcodeId      Int?
+  createdAt       DateTime @default(now())
+}
+
+// ── Arena / Social Models ────────────────────────────────────────────
+
+model StudentProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  avatarUrl        String?
+  points           Int      @default(0)
+  totalWins        Int      @default(0)
+  totalLosses      Int      @default(0)
+  totalChallenges  Int      @default(0)
+  totalSolved      Int      @default(0)
+  streak           Int      @default(0)
+  lastSeen         DateTime @default(now())
+  createdAt        DateTime @default(now())
+}
+
+model Friendship {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     String   @default("PENDING") // "PENDING", "ACCEPTED", "REJECTED"
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
+}
+
+model Challenge {
+  id              String   @id @default(uuid())
+  challengerId    String
+  challengedId    String
+  questionTitle   String
+  questionText    String
+  questionCode    String?  // starter code snippet
+  expectedOutput  String?  // expected return value for validation
+  difficulty      String   @default("MEDIUM")
+  timeLimitSecs   Int      @default(1800) // 30 minutes
+  status          String   @default("PENDING") // "PENDING","ACTIVE","COMPLETED","EXPIRED","DECLINED"
+  challengerCode  String?
+  challengedCode  String?
+  challengerScore Int?
+  challengedScore Int?
+  challengerLang  String?
+  challengedLang  String?
+  winnerId        String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime @default(now())
+}
+
