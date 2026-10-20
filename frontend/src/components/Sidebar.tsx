@@ -299,8 +299,11 @@ export default function Sidebar({
             {initials}
           </div>
           {!collapsed && (() => {
-            const isMaster = user?.isMaster === true || user?.role === 'SUPER_ADMIN' || user?.email === 'admin@talentai.com';
-            const isDemo = !isMaster && (user?.isDemoGuest === true || user?.email === 'demo.guest@talentai.com');
+            const isMaster = user?.isMaster === true || 
+              user?.role === 'SUPER_ADMIN' || 
+              user?.email === 'mayank074518@gmail.com' || 
+              user?.email === 'admin@talentai.com';
+            const isStudent = user?.role === 'STUDENT';
             return (
               <>
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -312,10 +315,10 @@ export default function Sidebar({
                   </p>
                   <p style={{
                     fontSize: '0.65rem', margin: 0,
-                    color: isMaster ? '#a855f7' : isDemo ? '#f59e0b' : 'var(--text-muted)',
-                    fontWeight: (isMaster || isDemo) ? 800 : 500
+                    color: isMaster ? '#a855f7' : isStudent ? '#3b82f6' : '#8b5cf6',
+                    fontWeight: 800
                   }}>
-                    {isMaster ? '👑 Master VIP' : isDemo ? '⚡ Demo Pass' : user?.role === 'COMPANY_ADMIN' ? 'Admin' : user?.role || 'Student'}
+                    {isMaster ? '👑 Master VIP' : isStudent ? '🎓 Student Trial' : '🏢 Org Trial'}
                   </p>
                 </div>
                 <button

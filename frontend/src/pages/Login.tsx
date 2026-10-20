@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Brain, Lock, Mail, User, Building, AlertCircle,
   ArrowLeft, Eye, EyeOff, CheckCircle2, GraduationCap, Building2,
@@ -107,37 +107,17 @@ export default function Login({ onAuthSuccess, onNavigate, onOpenPaywall }: Logi
     }
   };
 
-  // 1-Click Demo Guest Pass Login
-  const handleDemoGuestLogin = async () => {
-    if (localStorage.getItem('talentai_demo_locked') === 'true') {
-      setError('Your 1-time free demo walkthrough has already concluded. Please activate a subscription to continue, or sign in as Master Owner.');
-      if (onOpenPaywall) onOpenPaywall();
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const res = await fetch('/api/auth/demo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to initialize demo pass');
-
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      if (data.company) localStorage.setItem('company', JSON.stringify(data.company));
-
-      onAuthSuccess(data.token, data.user, data.company);
-    } catch (err: any) {
-      setError(err.message || 'Demo initialization failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Secret keyboard shortcut for Master Owner (Alt+M)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.altKey && (e.key === 'm' || e.key === 'M')) || (e.ctrlKey && e.shiftKey && (e.key === 'm' || e.key === 'M'))) {
+        e.preventDefault();
+        handleMasterOwnerLogin();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 1-Click Master Owner VIP Login (Creator/Owner Bypass)
   const handleMasterOwnerLogin = async () => {
@@ -305,64 +285,14 @@ export default function Login({ onAuthSuccess, onNavigate, onOpenPaywall }: Logi
             </p>
           </div>
 
-          {/* ── 1-CLICK ACCESS PASSES (DEMO GUEST & MASTER OWNER) ── */}
-          <div className="space-y-3 mb-6">
-            {/* Demo Guest 1-Time Pass */}
-            <button
-              type="button"
-              onClick={handleDemoGuestLogin}
-              disabled={loading}
-              className={`w-full py-3.5 px-4 rounded-2xl border text-sm font-extrabold flex items-center justify-between transition-all shadow-md group ${
-                isDemoLocked
-                  ? 'border-amber-500/30 bg-amber-500/5 text-amber-500/80 hover:bg-amber-500/10'
-                  : 'border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/20 text-amber-400 hover:border-amber-400 hover:shadow-amber-500/10'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
-                </div>
-                <div className="text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-xs text-[var(--text-primary)]">Explore as Demo Guest</span>
-                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                      {isDemoLocked ? 'Expired' : '1-Time Free'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[var(--text-muted)] font-normal">
-                    {isDemoLocked
-                      ? 'Trial concluded. Click to view upgrade plans.'
-                      : 'Preview core features & tabs with 1 click.'}
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            {/* Master Owner VIP 1-Click Access */}
-            <button
-              type="button"
-              onClick={handleMasterOwnerLogin}
-              disabled={loading}
-              className="w-full py-3 px-4 rounded-2xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-400 flex items-center justify-between transition-all group"
-            >
-              <div className="flex items-center gap-2.5">
-                <Crown className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
-                <span className="font-extrabold text-[var(--text-primary)]">👑 Master Owner VIP Access</span>
-                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300">Creator Pass</span>
-              </div>
-              <span className="text-[11px] font-black text-purple-400 group-hover:underline">Instant Unlock →</span>
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-[var(--border)]" />
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
-              Or Sign In With Account
-            </span>
-            <div className="flex-1 h-px bg-[var(--border)]" />
-          </div>
+          {/* Secret Invisible Master Owner Login Button (Invisible to others) */}
+          <button
+            type="button"
+            onClick={handleMasterOwnerLogin}
+            title="TalentAI Founder Access"
+            className="w-full h-1 opacity-0 cursor-default focus:outline-none mb-2"
+            tabIndex={-1}
+          />
 
           {/* Alerts */}
           {error && (

@@ -86,6 +86,7 @@ router.post('/register', async (req: AuthRequest, res: Response) => {
         email: result.user.email,
         role: result.user.role,
         companyId: result.user.companyId,
+        createdAt: result.user.createdAt,
       },
       company: result.company,
     });
@@ -163,6 +164,7 @@ router.post('/register-student', async (req: AuthRequest, res: Response) => {
         email: user.email,
         role: user.role,
         companyId: user.companyId,
+        createdAt: user.createdAt,
       },
       company: studentCompany,
     });
@@ -264,6 +266,8 @@ router.post('/social-login', async (req: AuthRequest, res: Response) => {
         email: user.email,
         role: user.role,
         companyId: user.companyId,
+        createdAt: user.createdAt,
+        isMaster: user.email === 'mayank074518@gmail.com' || user.role === 'SUPER_ADMIN',
       },
       company: user.company,
       isNewUser,
@@ -336,7 +340,12 @@ router.post('/demo-login', async (req: AuthRequest, res: Response) => {
 router.post('/master-login', async (req: AuthRequest, res: Response) => {
   try {
     let masterUser = await prisma.user.findFirst({
-      where: { email: 'admin@talentai.com' },
+      where: {
+        OR: [
+          { email: 'mayank074518@gmail.com' },
+          { email: 'admin@talentai.com' }
+        ]
+      },
       include: { company: true },
     });
 
@@ -346,11 +355,11 @@ router.post('/master-login', async (req: AuthRequest, res: Response) => {
     }
 
     if (!masterUser) {
-      const passwordHash = await bcrypt.hash('password123', 10);
+      const passwordHash = await bcrypt.hash('mayankadmin2026', 10);
       masterUser = await prisma.user.create({
         data: {
-          email: 'admin@talentai.com',
-          name: 'Master Owner',
+          email: 'mayank074518@gmail.com',
+          name: 'Mayank Kumar Acharya (Founder)',
           passwordHash,
           role: 'SUPER_ADMIN',
           companyId: company.id,
@@ -373,11 +382,11 @@ router.post('/master-login', async (req: AuthRequest, res: Response) => {
       {
         id: masterUser.id,
         email: masterUser.email,
-        role: masterUser.role,
+        role: 'SUPER_ADMIN',
         companyId: masterUser.companyId,
       },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '365d' }
     );
 
     return res.json({
@@ -386,9 +395,10 @@ router.post('/master-login', async (req: AuthRequest, res: Response) => {
         id: masterUser.id,
         name: masterUser.name,
         email: masterUser.email,
-        role: masterUser.role,
+        role: 'SUPER_ADMIN',
         companyId: masterUser.companyId,
         isMaster: true,
+        createdAt: masterUser.createdAt,
       },
       company: masterUser.company || company,
       isMaster: true,
@@ -441,6 +451,8 @@ router.post('/login', async (req: AuthRequest, res: Response) => {
         email: user.email,
         role: user.role,
         companyId: user.companyId,
+        createdAt: user.createdAt,
+        isMaster: user.email === 'mayank074518@gmail.com' || user.role === 'SUPER_ADMIN',
       },
       company: user.company,
     });

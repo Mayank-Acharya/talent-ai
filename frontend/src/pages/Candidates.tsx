@@ -818,10 +818,13 @@ export default function Candidates({ token, user }: CandidatesProps) {
                         : '—';
 
                       const interviewTitle = session.interview?.title || `Assessment #${idx + 1}`;
-
                       return (
                         <tr key={session.id}
-                          onClick={() => { setSelectedCandidate({ id: candidateId }); loadCandidateDetail(candidateId); }}
+                          onClick={() => {
+                            const found = candidates.find(c => c.id === candidateId);
+                            setSelectedCandidate(found || { id: candidateId, name: candidateName || 'Candidate', email: session?.candidateEmail || '' });
+                            loadCandidateDetail(candidateId);
+                          }}
                           style={{ cursor: 'pointer' }}
                         >
                           {/* Interview title */}
@@ -1294,19 +1297,19 @@ export default function Candidates({ token, user }: CandidatesProps) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '1rem', fontWeight: 900, color: '#fff',
                   }}>
-                    {selectedCandidate.name.charAt(0)}
+                    {((selectedCandidate?.name || candidateDetail?.name || 'C').trim().charAt(0) || 'C').toUpperCase()}
                   </div>
                   <div>
                     <h3 style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0 }}>
-                      {selectedCandidate.name}
+                      {selectedCandidate?.name || candidateDetail?.name || 'Candidate Evaluation'}
                     </h3>
                     <div style={{ display: 'flex', gap: 12, marginTop: 3 }}>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Mail style={{ width: 12, height: 12 }} /> {selectedCandidate.email}
+                        <Mail style={{ width: 12, height: 12 }} /> {selectedCandidate?.email || candidateDetail?.email || 'N/A'}
                       </span>
-                      {selectedCandidate.phone && (
+                      {(selectedCandidate?.phone || candidateDetail?.phone) && (
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Phone style={{ width: 12, height: 12 }} /> {selectedCandidate.phone}
+                          <Phone style={{ width: 12, height: 12 }} /> {selectedCandidate?.phone || candidateDetail?.phone}
                         </span>
                       )}
                     </div>

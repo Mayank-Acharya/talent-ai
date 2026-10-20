@@ -12,14 +12,11 @@ import Settings from './pages/Settings';
 import Session from './pages/Session';
 import Arena from './pages/Arena';
 import SolvedTracker from './pages/SolvedTracker';
-import TrialPaywall from './components/TrialPaywall';
-import { Sparkles, Crown, Lock, ArrowRight, LogOut } from 'lucide-react';
-
-const CORE_TABS = ['questions', 'tracker', 'arena', 'resume-parser'];
+import { Crown, Lock, ArrowRight, LogOut, Clock, GraduationCap, Building2 } from 'lucide-react';
 
 export default function App() {
   // Navigation states
-  const [page, setPage] = useState<'landing' | 'login' | 'dashboard' | 'session' | 'paywall'>('landing');
+  const [page, setPage] = useState<'landing' | 'login' | 'dashboard' | 'session'>('landing');
   const [sessionToken, setSessionToken] = useState('');
 
   // Auth states
@@ -30,10 +27,8 @@ export default function App() {
   // Active sidebar tab
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Demo guest tracking
-  const [demoVisitedTabs, setDemoVisitedTabs] = useState<string[]>([]);
-  const [demoLockoutWarning, setDemoLockoutWarning] = useState(false);
-  const [lockoutCountdown, setLockoutCountdown] = useState(4);
+  // Trial tick state (for countdown updates every 30 seconds)
+  const [, setTick] = useState(0);
 
   // ── Dark / Light mode ─────────────────────────────
   const [isDark, setIsDark] = useState(() => {
@@ -67,52 +62,62 @@ export default function App() {
     }
   }, [token]);
 
-  const isMasterOwner = user?.isMaster === true || user?.role === 'SUPER_ADMIN' || user?.email === 'admin@talentai.com';
-  const isDemoGuest = !isMasterOwner && (user?.isDemoGuest === true || user?.email === 'demo.guest@talentai.com');
+  // Periodic trial tick
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Initialize or track visited tabs when user navigates
-  const handleTabChange = (newTab: string) => {
-    setActiveTab(newTab);
+  const isMasterOwner = user?.isMaster === true || 
+    user?.role === 'SUPER_ADMIN' || 
+    user?.email === 'mayank074518@gmail.com' || 
+    user?.email === 'admin@talentai.com';
 
-    if (isDemoGuest && !isMasterOwner) {
-      setDemoVisitedTabs(prev => {
-        const nextSet = prev.includes(newTab) ? prev : [...prev, newTab];
-        
-        // Count how many core tabs have been explored
-        const coreExplored = CORE_TABS.filter(t => nextSet.includes(t));
-        
-        if (coreExplored.length >= CORE_TABS.length && !demoLockoutWarning) {
-          // Trigger automatic logout sequence
-          setDemoLockoutWarning(true);
-        }
-        return nextSet;
-      });
+  const isStudent = user?.role === 'STUDENT';
+
+  // ── Free Trial Logic: 7 Days for Students, 2 Hours for Organizations ──
+  const trialDurationMs = isStudent 
+    ? 7 * 24 * 60 * 60 * 1000   // 7 days
+    : 2 * 60 * 60 * 1000;        // 2 hours
+
+  const getTrialStartTime = (): number => {
+    if (user?.createdAt) {
+      const parsed = new Date(user.createdAt).getTime();
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    const key = `talentai_trial_start_${user?.id || user?.email || 'default'}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const val = parseInt(stored, 10);
+      if (!isNaN(val) && val > 0) return val;
+    }
+    const now = Date.now();
+    localStorage.setItem(key, String(now));
+    return now;
+  };
+
+  const trialStartTime = user ? getTrialStartTime() : Date.now();
+  const timeElapsed = Date.now() - trialStartTime;
+  const timeRemaining = Math.max(0, trialDurationMs - timeElapsed);
+  const isTrialExpired = !isMasterOwner && (timeElapsed >= trialDurationMs);
+
+  const formatRemaining = () => {
+    if (isStudent) {
+      const days = Math.floor(timeRemaining / (24 * 60 * 60 * 1000));
+      const hours = Math.floor((timeRemaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+      if (days > 0) return `${days}d ${hours}h remaining`;
+      const mins = Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000));
+      return `${hours}h ${mins}m remaining`;
+    } else {
+      const hours = Math.floor(timeRemaining / (60 * 60 * 1000));
+      const mins = Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000));
+      return `${hours}h ${mins}m remaining`;
     }
   };
 
-  // Automatic Lockout countdown timer
-  useEffect(() => {
-    if (!demoLockoutWarning) return;
-
-    if (lockoutCountdown > 0) {
-      const timer = setTimeout(() => {
-        setLockoutCountdown(c => c - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else {
-      // Execute 1-time demo logout and lock
-      localStorage.setItem('talentai_demo_locked', 'true');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('company');
-      setToken('');
-      setUser(null);
-      setCompany(null);
-      setDemoLockoutWarning(false);
-      setDemoVisitedTabs([]);
-      setPage('paywall');
-    }
-  }, [demoLockoutWarning, lockoutCountdown]);
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+  };
 
   const handleAuthSuccess = (newToken: string, newUser: any, newCompany: any) => {
     setToken(newToken);
@@ -121,12 +126,6 @@ export default function App() {
     setPage('dashboard');
     const initialTab = newUser?.role === 'STUDENT' ? 'questions' : 'dashboard';
     setActiveTab(initialTab);
-
-    if (newUser?.isDemoGuest) {
-      setDemoVisitedTabs([initialTab]);
-    } else {
-      setDemoVisitedTabs([]);
-    }
   };
 
   const handleLogout = () => {
@@ -139,45 +138,10 @@ export default function App() {
     setPage('landing');
   };
 
-  // Instant Owner VIP Login Bypass
-  const handleMasterBypass = async () => {
-    try {
-      const res = await fetch('/api/auth/master-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Master login failed');
-
-      localStorage.removeItem('talentai_demo_locked');
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      if (data.company) localStorage.setItem('company', JSON.stringify(data.company));
-
-      handleAuthSuccess(data.token, data.user, data.company);
-    } catch (e) {
-      console.error(e);
-      window.location.reload();
-    }
-  };
-
   const handleCompanyUpdate = (updatedCompany: any) => setCompany(updatedCompany);
 
   // ── Page router ────────────────────────────────────
   if (page === 'session') return <Session token={sessionToken} />;
-
-  // Paywall screen
-  if (page === 'paywall') {
-    return (
-      <TrialPaywall
-        onUnlockAsMaster={handleMasterBypass}
-        onPaymentSuccess={() => {
-          setPage('login');
-        }}
-        onNavigateLanding={() => setPage('landing')}
-      />
-    );
-  }
 
   // Unauthenticated users
   if (!token) {
@@ -186,7 +150,6 @@ export default function App() {
       <Login
         onAuthSuccess={handleAuthSuccess}
         onNavigate={(p) => setPage(p as any)}
-        onOpenPaywall={() => setPage('paywall')}
       />
     );
   }
@@ -197,12 +160,9 @@ export default function App() {
       <Login
         onAuthSuccess={handleAuthSuccess}
         onNavigate={(p) => setPage(p as any)}
-        onOpenPaywall={() => setPage('paywall')}
       />
     );
   }
-
-  const exploredCoreCount = CORE_TABS.filter(t => demoVisitedTabs.includes(t)).length;
 
   return (
     <div
@@ -213,40 +173,43 @@ export default function App() {
         fontFamily: "'Inter', sans-serif",
       }}
     >
-      {/* ── Demo Guest Sticky Trial Banner ── */}
-      {isDemoGuest && (
-        <div className="force-white w-full px-4 py-2 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white text-xs font-bold flex items-center justify-between shrink-0 shadow-lg z-50" style={{ color: '#ffffff' }}>
+      {/* ── Active Free Trial Top Banner (Student: 7 Days | Org: 2 Hours) ── */}
+      {!isMasterOwner && !isTrialExpired && (
+        <div className="force-white w-full px-4 py-2 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white text-xs font-bold flex items-center justify-between shrink-0 shadow-md z-50" style={{ color: '#ffffff' }}>
           <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
             <span className="p-1 rounded-full bg-white/20">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
+              {isStudent ? <GraduationCap className="w-3.5 h-3.5 text-white" /> : <Building2 className="w-3.5 h-3.5 text-white" />}
             </span>
             <span style={{ color: '#ffffff' }}>
-              <strong style={{ color: '#ffffff' }}>⚡ 1-Time Demo Guest Pass:</strong> {exploredCoreCount} of {CORE_TABS.length} core features viewed. Once all 4 are explored, session automatically locks.
+              <strong style={{ color: '#ffffff' }}>
+                {isStudent ? '🎓 Student 7-Day Free Trial Active:' : '🏢 Organization 2-Hour Free Trial Active:'}
+              </strong>{' '}
+              {formatRemaining()}. Full access to all tools &amp; assessments.
             </span>
           </div>
           <button
-            onClick={() => setPage('paywall')}
-            className="px-3 py-1 rounded-full bg-white text-orange-700 hover:bg-orange-50 font-black text-[11px] shadow-sm flex items-center gap-1 transition-all"
-            style={{ color: '#c2410c' }}
+            onClick={() => setActiveTab('billing')}
+            className="px-3 py-1 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-black text-[11px] shadow-sm flex items-center gap-1 transition-all cursor-pointer"
+            style={{ color: '#1d4ed8' }}
           >
-            <span>Upgrade to Full Pass (₹199)</span>
+            <span>{isStudent ? 'Student Pass (₹199)' : 'Organisation Suite (₹1,999)'}</span>
             <ArrowRight className="w-3 h-3" />
           </button>
         </div>
       )}
 
-      {/* ── Master Owner Permanent VIP Banner ── */}
+      {/* ── Master Owner Permanent VIP Banner (Mayank Kumar Acharya) ── */}
       {isMasterOwner && (
         <div className="force-white w-full px-4 py-2 bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white text-xs font-bold flex items-center justify-between shrink-0 border-b border-purple-500/30 z-50 shadow-sm" style={{ color: '#ffffff' }}>
           <div className="flex items-center gap-2.5" style={{ color: '#ffffff' }}>
             <Crown className="w-4 h-4 text-amber-400 shrink-0" />
             <span style={{ color: '#ffffff' }}>
-              👑 <strong style={{ color: '#ffffff', fontWeight: 800 }}>Master Owner Lifetime Access:</strong> Unlimited permanent access active. Zero trial limits or billing charges apply to you.
+              👑 <strong style={{ color: '#ffffff', fontWeight: 800 }}>Master Owner Lifetime Access:</strong> Unlimited permanent access active for Mayank Kumar Acharya. Zero trial limits apply.
             </span>
           </div>
           <div className="flex items-center gap-2.5">
             <span className="text-[10px] uppercase font-black tracking-wider text-purple-200 bg-purple-500/30 px-2.5 py-0.5 rounded-full border border-purple-400/40" style={{ color: '#f3e8ff' }}>
-              Creator VIP
+              Founder VIP
             </span>
             <button
               onClick={handleLogout}
@@ -287,39 +250,41 @@ export default function App() {
         </main>
       </div>
 
-      {/* ── Automatic Demo Lockout Overlay ── */}
-      {demoLockoutWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in-up">
-          <div className="w-full max-w-md rounded-3xl p-8 bg-[var(--bg-card)] border border-amber-500 shadow-2xl text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-500">
+      {/* ── Trial Expired Redirect Overlay (Locks app & redirects to billing) ── */}
+      {isTrialExpired && activeTab !== 'billing' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in-up">
+          <div className="w-full max-w-md rounded-3xl p-8 bg-[var(--bg-card)] border border-red-500/40 shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto text-red-500">
               <Lock className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 inline-block mb-2">
-                1-Time Demo Exploration Completed
+              <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 inline-block mb-2">
+                {isStudent ? '7-Day Free Trial Expired' : '2-Hour Free Trial Expired'}
               </span>
               <h2 className="text-2xl font-black text-[var(--text-primary)]">
-                You've Explored All Core Features!
+                Upgrade to Keep Access
               </h2>
               <p className="text-xs text-[var(--text-secondary)] mt-2 leading-relaxed">
-                You experienced our Practice Bank, 1v1 Arena, Solved &amp; Streak Calendar, and ATS Resume Parser. Your 1-time free trial has now ended.
+                {isStudent
+                  ? 'Your 7-day student trial has concluded. Activate your Student Pass for ₹199/month to continue unlimited practice, arena duels, and ATS resume scans.'
+                  : 'Your 2-hour organization trial has concluded. Upgrade to the Recruiter Suite for ₹1,999/month for full candidate pipeline & AI proctoring.'}
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] text-xs text-amber-400 font-bold">
-              Automatically locking demo session in <span className="text-lg font-black text-amber-300">{lockoutCountdown}</span> seconds...
-            </div>
+            <button
+              onClick={() => setActiveTab('billing')}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white font-black text-xs shadow-lg shadow-indigo-600/30 hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Unlock Access via Instant UPI Scanner (₹{isStudent ? 199 : 1999})</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
 
             <button
-              onClick={() => {
-                localStorage.setItem('talentai_demo_locked', 'true');
-                handleLogout();
-                setPage('paywall');
-              }}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-black text-xs shadow-lg shadow-orange-600/30 hover:brightness-110 transition-all"
+              onClick={handleLogout}
+              className="text-xs text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer"
             >
-              Unlock Unlimited Access via Instant UPI (₹199) →
+              Sign out
             </button>
           </div>
         </div>
