@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # ── Backend Node.js API Service ──
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: talentai_backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://neondb_owner:npg_WsLxMPkc98pl@ep-divine-tree-b5nb93t1-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - JWT_SECRET=mock-jwt-secret-for-local-development-987654
+      - UPI_ID=30062006@cnrb
+      - UPI_NAME=MAYANK KUMAR ACHARYA
+      - OWNER_UPI_ID=30062006@cnrb
+      - OWNER_UPI_NAME=MAYANK KUMAR ACHARYA
+      - FRONTEND_URL=http://localhost
+    volumes:
+      # Persistent storage volume for candidate resumes & recorded interview videos
+      - talentai_uploads:/app/uploads
+    networks:
+      - talentai_network
+
+  # ── Frontend React + Nginx Web Server ──
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: talentai_frontend
+    restart: unless-stopped
+    ports:
+      # Accessible on both standard Port 80 and Port 3000
+      - "80:80"
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - talentai_network
+
+volumes:
+  talentai_uploads:
+    name: talentai_uploads
+
+networks:
+  talentai_network:
+    name: talentai_network
+    driver: bridge
