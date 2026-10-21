@@ -53,7 +53,7 @@ RUN mkdir -p /app/uploads && chown -R node:node /app
 # Run as non-root 'node' user for security
 USER node
 
-EXPOSE 5000
+EXPOSE 5000 10000
 
 # Start compiled server
 CMD ["node", "dist/index.js"]

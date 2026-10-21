@@ -71,8 +71,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-// Start Express Server (listen on 0.0.0.0)
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`[TalentAI Server] running on http://0.0.0.0:${PORT}`);
+// Start Express Server on both PORT (5000) and Render default (10000)
+const primaryPort = Number(process.env.PORT) || 5000;
+app.listen(primaryPort, '0.0.0.0', () => {
+  console.log(`[TalentAI Server] running on http://0.0.0.0:${primaryPort}`);
   console.log(`[Database Connection] using configuration in Prisma schema`);
 });
+
+if (primaryPort !== 10000) {
+  try {
+    app.listen(10000, '0.0.0.0', () => {
+      console.log(`[TalentAI Server] also listening on http://0.0.0.0:10000`);
+    });
+  } catch (err) {
+    console.log('Dual port bind notice:', err);
+  }
+}
