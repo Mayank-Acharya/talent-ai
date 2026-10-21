@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, Video, Award, Clock, Bell, ArrowRight,
   ExternalLink, ChevronRight, RefreshCw, Activity,
-  BarChart3, CheckCircle2, AlertCircle, Circle
+  BarChart3, CheckCircle2, AlertCircle, Circle, Trash2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -18,6 +18,11 @@ function SkeletonCard() {
   return <div className="card rounded-xl h-24 skeleton" />;
 }
 
+function truncate(str: string, maxLen = 22): string {
+  if (!str) return '';
+  return str.length > maxLen ? str.slice(0, maxLen - 1) + '…' : str;
+}
+
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   COMPLETED: { label: 'Completed', color: '#059669', bg: 'rgba(5,150,105,0.15)' },
   STARTED:   { label: 'In Progress', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
@@ -30,6 +35,8 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<any>(null);
+  const [deletingSession, setDeletingSession] = useState(false);
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -46,6 +53,34 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    setDeletingSession(true);
+    try {
+      const res = await fetch(`/api/sessions/${sessionToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to delete session');
+      }
+      setData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recentSessions: (prev.recentSessions || []).filter((s: any) => s.id !== sessionToDelete.id),
+        };
+      });
+      setSessionToDelete(null);
+      fetchData(true);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting session');
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -353,6 +388,7 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: 44, textAlign: 'center' }}></th>
                 <th>Candidate</th>
                 <th>Interview</th>
                 <th>Token</th>
@@ -364,7 +400,7 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
             <tbody>
               {recentSessions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                       <Video style={{ width: 28, height: 28, opacity: 0.3 }} />
                       <p style={{ fontSize: '0.8rem', margin: 0 }}>No sessions yet. Invite a candidate to get started.</p>
@@ -376,19 +412,51 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
                   const s = STATUS_MAP[session.status] || STATUS_MAP.PENDING;
                   return (
                     <tr key={session.id}>
+                      <td style={{ width: 44, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSessionToDelete(session)}
+                          title="Delete this interview session"
+                          style={{
+                            width: 28, height: 28, borderRadius: 6,
+                            border: '1px solid var(--border)', background: 'var(--bg-card)',
+                            color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', transition: 'all 0.15s',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = '#ef4444';
+                            e.currentTarget.style.color = '#ef4444';
+                            e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.color = 'var(--text-muted)';
+                            e.currentTarget.style.background = 'var(--bg-card)';
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 190 }}>
                           <div style={{
                             width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff',
-                            fontSize: '0.7rem', fontWeight: 900,
+                            fontSize: '0.7rem', fontWeight: 900, flexShrink: 0,
                           }}>
                             {session.candidate.name.charAt(0)}
                           </div>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.82rem' }}>{session.candidate.name}</span>
+                          <span
+                            style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            title={session.candidate.name}
+                          >
+                            {truncate(session.candidate.name, 22)}
+                          </span>
                         </div>
                       </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{session.interview.title}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={session.interview.title}>
+                        {truncate(session.interview.title, 26)}
+                      </td>
                       <td>
                         <code style={{
                           fontSize: '0.7rem', padding: '2px 8px', borderRadius: 6,
@@ -454,6 +522,64 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
           </table>
         </div>
       </div>
+
+      {/* ── Delete Session Confirmation Modal ── */}
+      {sessionToDelete && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 18, maxWidth: 440, width: '100%', padding: '24px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', gap: 16
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Trash2 size={20} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                  Delete Interview Session?
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Candidate: <strong style={{ color: 'var(--text-primary)' }}>{sessionToDelete.candidate?.name}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Are you sure you want to permanently delete this interview session for <strong style={{ color: 'var(--text-primary)' }}>"{sessionToDelete.interview?.title}"</strong>? This will remove all submitted answers, evaluation scores, and video recordings.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                disabled={deletingSession}
+                onClick={() => setSessionToDelete(null)}
+                style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingSession}
+                onClick={handleDeleteSession}
+                style={{
+                  padding: '8px 18px', borderRadius: 10, border: 'none',
+                  background: deletingSession ? 'var(--border)' : '#dc2626',
+                  color: '#fff', fontSize: '0.8rem', fontWeight: 800,
+                  cursor: deletingSession ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {deletingSession ? 'Deleting...' : 'Delete Session'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

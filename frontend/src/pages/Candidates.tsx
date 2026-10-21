@@ -5,10 +5,15 @@ import {
   TrendingUp, Sliders, CheckCircle, Copy, AlertTriangle,
   Play, X, BarChart3, Code2, Clock, Zap, Brain,
   CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2,
-  Target, PercentSquare, Hash, Search, Share2
+  Target, PercentSquare, Hash, Search, Share2, Trash2
 } from 'lucide-react';
 
 interface CandidatesProps { token: string; user?: any; }
+
+function truncate(str: string = '', maxLen: number = 22): string {
+  if (!str) return '';
+  return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+}
 
 /* ── helpers ──────────────────────────────────────────── */
 function getMetrics(sessions: any[]) {
@@ -425,6 +430,57 @@ export default function Candidates({ token, user }: CandidatesProps) {
     finally { setLoadingDetail(false); }
   };
 
+  // Delete Candidate & Session states
+  const [candidateToDelete, setCandidateToDelete] = useState<any>(null);
+  const [deletingCandidate, setDeletingCandidate] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<any>(null);
+  const [deletingSession, setDeletingSession] = useState(false);
+
+  const handleDeleteCandidate = async () => {
+    if (!candidateToDelete) return;
+    setDeletingCandidate(true);
+    try {
+      const res = await fetch(`/api/candidates/${candidateToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete candidate');
+      setCandidates(prev => prev.filter(c => c.id !== candidateToDelete.id));
+      if (selectedCandidate?.id === candidateToDelete.id) {
+        setSelectedCandidate(null);
+        setCandidateDetail(null);
+      }
+      setCandidateToDelete(null);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting candidate');
+    } finally {
+      setDeletingCandidate(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    setDeletingSession(true);
+    try {
+      const res = await fetch(`/api/sessions/${sessionToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete session');
+      setCandidates(prev => prev.map(c => ({
+        ...c,
+        sessions: (c.sessions || []).filter((s: any) => s.id !== sessionToDelete.id)
+      })));
+      setSessionToDelete(null);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting session');
+    } finally {
+      setDeletingSession(false);
+    }
+  };
+
   useEffect(() => { fetchCandidates(); }, [token]);
 
   const filteredCandidates = React.useMemo(() => {
@@ -756,6 +812,7 @@ export default function Candidates({ token, user }: CandidatesProps) {
                 <table className="data-table" style={{ minWidth: 860, borderCollapse: 'separate', borderSpacing: 0 }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-secondary)' }}>
                     <tr>
+                      <th style={{ width: 44, background: 'var(--bg-secondary)', textAlign: 'center' }}></th>
                       <th style={{ width: 220, background: 'var(--bg-secondary)' }}>Interview / Assessment</th>
                       <th style={{ width: 130, background: 'var(--bg-secondary)', textAlign: 'center' }}>Date Completed</th>
                       <th style={{ width: 110, background: 'var(--bg-secondary)', textAlign: 'center' }}>
@@ -784,7 +841,7 @@ export default function Candidates({ token, user }: CandidatesProps) {
                   <tbody>
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                        <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                             <CheckCircle2 style={{ width: 32, height: 32, opacity: 0.25 }} />
                             <p style={{ fontSize: '0.875rem' }}>No completed assessments yet. Complete an interview to see your results here.</p>
@@ -827,6 +884,43 @@ export default function Candidates({ token, user }: CandidatesProps) {
                           }}
                           style={{ cursor: 'pointer' }}
                         >
+                          {/* Delete box */}
+                          <td style={{ width: 44, textAlign: 'center', padding: '8px 4px' }} onClick={e => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setSessionToDelete({ id: session.id, title: interviewTitle });
+                              }}
+                              title="Delete Session Record"
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                border: '1px solid var(--border)',
+                                background: 'var(--bg-primary)',
+                                color: 'var(--text-muted)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                e.currentTarget.style.color = '#ef4444';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.borderColor = 'var(--border)';
+                                e.currentTarget.style.background = 'var(--bg-primary)';
+                                e.currentTarget.style.color = 'var(--text-muted)';
+                              }}
+                            >
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
+                          </td>
+
                           {/* Interview title */}
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -838,10 +932,10 @@ export default function Candidates({ token, user }: CandidatesProps) {
                                 <Brain style={{ width: 16, height: 16, color: '#fff' }} />
                               </div>
                               <div style={{ minWidth: 0 }}>
-                                <p style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
-                                  {interviewTitle}
+                                <p title={interviewTitle} style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                                  {truncate(interviewTitle, 20)}
                                 </p>
-                                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: 0 }}>{candidateName}</p>
+                                <p title={candidateName} style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{truncate(candidateName, 22)}</p>
                               </div>
                             </div>
                           </td>
@@ -997,6 +1091,7 @@ export default function Candidates({ token, user }: CandidatesProps) {
             <table className="data-table" style={{ minWidth: 900, borderCollapse: 'separate', borderSpacing: 0 }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-secondary)' }}>
                 <tr>
+                  <th style={{ width: 44, textAlign: 'center', background: 'var(--bg-secondary)' }}></th>
                   <th style={{ width: 200, background: 'var(--bg-secondary)' }}>Candidate</th>
                   <th style={{ width: 110, background: 'var(--bg-secondary)' }}>Status</th>
                   <th style={{ textAlign: 'center', width: 110, background: 'var(--bg-secondary)' }}>
@@ -1030,7 +1125,7 @@ export default function Candidates({ token, user }: CandidatesProps) {
               <tbody>
                 {filteredCandidates.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                         <Users style={{ width: 32, height: 32, opacity: 0.3 }} />
                         <p style={{ fontSize: '0.875rem' }}>No matching candidates found.</p>
@@ -1047,8 +1142,44 @@ export default function Candidates({ token, user }: CandidatesProps) {
                       onClick={() => { setSelectedCandidate(c); loadCandidateDetail(c.id); }}
                       style={{ cursor: 'pointer' }}
                     >
+                      {/* Left Delete Box */}
+                      <td style={{ width: 44, textAlign: 'center', padding: '8px 4px' }} onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setCandidateToDelete(c);
+                          }}
+                          title="Delete Candidate"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            border: '1px solid var(--border)',
+                            background: 'var(--bg-primary)',
+                            color: 'var(--text-muted)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                            e.currentTarget.style.color = '#ef4444';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.background = 'var(--bg-primary)';
+                            e.currentTarget.style.color = 'var(--text-muted)';
+                          }}
+                        >
+                          <Trash2 style={{ width: 14, height: 14 }} />
+                        </button>
+                      </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                           <div style={{
                             width: 36, height: 36, borderRadius: '50%',
                             background: 'var(--brand)',
@@ -1058,10 +1189,12 @@ export default function Candidates({ token, user }: CandidatesProps) {
                             {c.name.charAt(0)}
                           </div>
                           <div style={{ minWidth: 0 }}>
-                            <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', margin: 0 }}>
-                              {c.name}
+                            <p title={c.name} style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                              {truncate(c.name, 20)}
                             </p>
-                            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>{c.email}</p>
+                            <p title={c.email} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                              {truncate(c.email, 22)}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -1246,14 +1379,50 @@ export default function Candidates({ token, user }: CandidatesProps) {
                         style={{
                           background: 'var(--bg-primary)', border: '1px solid var(--border)',
                           borderRadius: 10, padding: 10, cursor: 'pointer', transition: 'all 0.15s',
+                          overflow: 'hidden', minWidth: 0,
                         }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = col.c; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; }}
                       >
-                        <p style={{ fontWeight: 700, fontSize: '0.78rem', color: 'var(--text-primary)', margin: 0, marginBottom: 4 }}>{c.name}</p>
-                        <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: 0, marginBottom: 6 }}>{c.email}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                          <p
+                            title={c.name}
+                            style={{
+                              fontWeight: 700, fontSize: '0.78rem', color: 'var(--text-primary)', margin: 0,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+                            }}
+                          >
+                            {truncate(c.name, 16)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setCandidateToDelete(c);
+                            }}
+                            title="Delete candidate"
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+                              color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              borderRadius: 4, flexShrink: 0,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+                          >
+                            <Trash2 style={{ width: 13, height: 13 }} />
+                          </button>
+                        </div>
+                        <p
+                          title={c.email}
+                          style={{
+                            fontSize: '0.65rem', color: 'var(--text-muted)', margin: 0, marginBottom: 6,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {truncate(c.email, 22)}
+                        </p>
                         {m.attempted > 0 && (
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.1)', padding: '1px 5px', borderRadius: 4 }}>
                               {m.correct}/{m.attempted}
                             </span>
@@ -1317,6 +1486,27 @@ export default function Candidates({ token, user }: CandidatesProps) {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setCandidateToDelete(selectedCandidate || candidateDetail)}
+                  title="Delete Candidate"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '7px 12px', borderRadius: 9,
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#ef4444', fontSize: '0.78rem', fontWeight: 700,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                  }}
+                >
+                  <Trash2 style={{ width: 13, height: 13 }} /> Delete
+                </button>
                 <button
                   onClick={() => downloadCandidatePDF(candidateDetail)}
                   style={{
@@ -2163,6 +2353,194 @@ export default function Candidates({ token, user }: CandidatesProps) {
                 }}
               >
                 {sendingDecision ? 'Sending Mail...' : (decisionType === 'SELECTED' ? 'Send Selection Email' : 'Send Rejection Email')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE CANDIDATE CONFIRMATION MODAL ── */}
+      {candidateToDelete && (
+        <div style={modalOverlay}>
+          <div style={{
+            ...modalBox,
+            maxWidth: 440,
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            animation: 'fadeIn 0.15s ease',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: '#ef4444',
+              }}>
+                <AlertTriangle style={{ width: 22, height: 22 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  Delete Candidate?
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.45 }}>
+                  Are you sure you want to permanently delete <strong style={{ color: 'var(--text-primary)' }}>{candidateToDelete.name}</strong> ({candidateToDelete.email})?
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
+                  This will permanently remove their application, test sessions, evaluations, and video responses. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setCandidateToDelete(null)}
+                disabled={deletingCandidate}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: deletingCandidate ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCandidate}
+                disabled={deletingCandidate}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: deletingCandidate ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                {deletingCandidate ? (
+                  <>
+                    <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 style={{ width: 14, height: 14 }} />
+                    Delete Permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE SESSION CONFIRMATION MODAL ── */}
+      {sessionToDelete && (
+        <div style={modalOverlay}>
+          <div style={{
+            ...modalBox,
+            maxWidth: 440,
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            animation: 'fadeIn 0.15s ease',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: '#ef4444',
+              }}>
+                <AlertTriangle style={{ width: 22, height: 22 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  Delete Assessment Session?
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.45 }}>
+                  Are you sure you want to permanently delete this interview session record: <strong style={{ color: 'var(--text-primary)' }}>{sessionToDelete.title}</strong>?
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
+                  All evaluation scores, answers, and plagiarism reports for this session will be permanently removed.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSessionToDelete(null)}
+                disabled={deletingSession}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: deletingSession ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSession}
+                disabled={deletingSession}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: deletingSession ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                {deletingSession ? (
+                  <>
+                    <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 style={{ width: 14, height: 14 }} />
+                    Delete Record
+                  </>
+                )}
               </button>
             </div>
           </div>

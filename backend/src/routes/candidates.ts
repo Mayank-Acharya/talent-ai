@@ -702,6 +702,38 @@ router.post('/:id/send-decision-email', authenticateToken, requireRole(['COMPANY
   }
 });
 
+// 8. Delete Candidate
+router.delete('/:id', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER', 'STUDENT']), async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const companyId = req.user?.companyId;
+
+  try {
+    const candidate = await prisma.candidate.findUnique({
+      where: { id },
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    if (req.user?.role !== 'STUDENT' && companyId && candidate.companyId && candidate.companyId !== companyId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this candidate' });
+    }
+    if (req.user?.role === 'STUDENT' && candidate.email !== req.user.email) {
+      return res.status(403).json({ error: 'Unauthorized to delete this candidate' });
+    }
+
+    await prisma.candidate.delete({
+      where: { id },
+    });
+
+    return res.json({ success: true, message: 'Candidate deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete candidate error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete candidate' });
+  }
+});
+
 export default router;
 
 

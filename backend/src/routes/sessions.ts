@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import { prisma } from '../services/db';
 import { evaluateAnswer } from '../services/ai';
+import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -361,6 +362,41 @@ router.post('/upload-video/:token', upload.single('video'), async (req, res) => 
   } catch (error) {
     console.error('Upload session video error:', error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 7. Delete Session
+router.delete('/:id', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER', 'STUDENT']), async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const companyId = req.user?.companyId;
+
+  try {
+    const session = await prisma.interviewSession.findUnique({
+      where: { id },
+      include: {
+        candidate: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (req.user?.role !== 'STUDENT' && companyId && session.candidate.companyId && session.candidate.companyId !== companyId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this session' });
+    }
+    if (req.user?.role === 'STUDENT' && session.candidate.email !== req.user.email) {
+      return res.status(403).json({ error: 'Unauthorized to delete this session' });
+    }
+
+    await prisma.interviewSession.delete({
+      where: { id },
+    });
+
+    return res.json({ success: true, message: 'Interview session deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete session error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete session' });
   }
 });
 
