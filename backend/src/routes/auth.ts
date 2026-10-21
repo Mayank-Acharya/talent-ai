@@ -492,4 +492,60 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
   }
 });
 
+// 4. Update Current User Profile & Optional Password Change
+router.put('/me', authenticateToken, async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { name, currentPassword, newPassword } = req.body;
+
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { id: req.user.id },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let passwordHashUpdate: string | undefined = undefined;
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to set a new password' });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, existing.passwordHash);
+      if (!isMatch) {
+        return res.status(400).json({ error: 'Current password does not match' });
+      }
+      if (typeof newPassword !== 'string' || newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+      }
+      passwordHashUpdate = await bcrypt.hash(newPassword, 10);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(name ? { name: String(name).trim() } : {}),
+        ...(passwordHashUpdate ? { passwordHash: passwordHashUpdate } : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        companyId: true,
+        company: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({ success: true, user: updated });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

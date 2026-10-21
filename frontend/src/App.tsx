@@ -207,8 +207,18 @@ export default function App() {
           {activeTab === 'arena'         && <Arena token={token} />}
           {activeTab === 'candidates'    && <Candidates token={token} user={user} />}
           {activeTab === 'resume-parser' && <ResumeParser token={token} />}
-          {activeTab === 'billing'       && <Billing token={token} company={company} onCompanyUpdate={handleCompanyUpdate} user={user} />}
-          {activeTab === 'settings'      && <Settings token={token} company={company} onCompanyUpdate={handleCompanyUpdate} />}
+          {activeTab === 'settings'      && (
+            <Settings 
+              token={token} 
+              company={company} 
+              onCompanyUpdate={handleCompanyUpdate} 
+              user={user} 
+              onUserUpdate={(updatedUser) => {
+                setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+              }}
+            />
+          )}
         </main>
       </div>
 

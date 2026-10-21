@@ -381,20 +381,6 @@ export default function Sidebar({
                     {badgeLabel}
                   </p>
                 </div>
-                <button
-                  onClick={onLogout}
-                  title="Log Out"
-                  style={{
-                    padding: '5px 8px', borderRadius: 8, border: 'none', background: 'rgba(239,68,68,0.1)',
-                    cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4,
-                    fontSize: '0.68rem', fontWeight: 800, flexShrink: 0, transition: 'all 0.15s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
-                >
-                  <LogOut style={{ width: 12, height: 12 }} />
-                  <span>Exit</span>
-                </button>
               </>
             );
           })()}
