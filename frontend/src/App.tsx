@@ -201,12 +201,20 @@ export default function App() {
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto relative">
           {activeTab === 'dashboard'     && <Dashboard token={token} onTabChange={handleTabChange} />}
-          {activeTab === 'interviews'    && <Interviews token={token} />}
+          {activeTab === 'interviews'    && (!isStudent ? <Interviews token={token} /> : <QuestionBank token={token} />)}
           {activeTab === 'questions'     && <QuestionBank token={token} />}
           {activeTab === 'tracker'       && <SolvedTracker token={token} />}
           {activeTab === 'arena'         && <Arena token={token} />}
           {activeTab === 'candidates'    && <Candidates token={token} user={user} />}
           {activeTab === 'resume-parser' && <ResumeParser token={token} />}
+          {activeTab === 'billing'       && (
+            <Billing 
+              token={token} 
+              company={company} 
+              onCompanyUpdate={handleCompanyUpdate} 
+              user={user} 
+            />
+          )}
           {activeTab === 'settings'      && (
             <Settings 
               token={token} 

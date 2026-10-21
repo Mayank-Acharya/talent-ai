@@ -387,7 +387,107 @@ router.get('/practice-history', authenticateToken, async (req: AuthRequest, res:
 
     return res.json({ history });
   } catch (error) {
-    console.error('Get practice history error:', error);
+    console.error('Practice history error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 7. Get Total Points Earned for Student
+router.get('/points-summary', authenticateToken, async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  const userEmail = req.user?.email;
+
+  try {
+    // 1. Practice Submissions (auditLog)
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        userId,
+        action: {
+          in: ['PRACTICE_SUBMISSION', 'QUESTION_BANK_PRACTICE', 'ARENA_CHALLENGE', 'ARENA_MATCH'],
+        },
+      },
+    });
+
+    let practicePoints = 0;
+    let solvedProblemsCount = 0;
+    logs.forEach(l => {
+      let details: any = {};
+      try { details = JSON.parse(l.details || '{}'); } catch (e) {}
+      const isPassed = details.passed === true || details.isAccepted === true || (typeof details.score === 'number' && details.score >= 60);
+      if (isPassed) {
+        solvedProblemsCount++;
+        const sc = typeof details.score === 'number' ? details.score : 20;
+        practicePoints += Math.max(10, Math.round(sc / 2));
+      }
+    });
+
+    // 2. Arena 1v1 challenges
+    const arenaMatches = await prisma.challenge.findMany({
+      where: {
+        status: 'COMPLETED',
+        OR: [{ challengerId: userId }, { challengedId: userId }],
+      },
+    });
+
+    let arenaPoints = 0;
+    arenaMatches.forEach(ch => {
+      if (ch.winnerId === userId) {
+        arenaPoints += 50; // Win bonus
+      } else {
+        arenaPoints += 20; // Participation points
+      }
+    });
+
+    // 3. Completed Interview Sessions & Assessments
+    let assessmentPoints = 0;
+    if (userEmail) {
+      const candidateRecords = await prisma.candidate.findMany({
+        where: { email: userEmail },
+        include: {
+          sessions: {
+            where: { status: 'COMPLETED' },
+            include: { answers: { include: { evaluation: true } } },
+          },
+        },
+      });
+
+      candidateRecords.forEach(c => {
+        c.sessions.forEach(s => {
+          s.answers.forEach(a => {
+            const sc = a.evaluation?.overrideScore ?? a.evaluation?.score ?? 0;
+            if (sc >= 50) {
+              assessmentPoints += Math.round(sc / 2);
+            }
+          });
+        });
+      });
+    }
+
+    // Default baseline points for student joining / welcome reward
+    const welcomeBonus = 100;
+    const totalPoints = welcomeBonus + practicePoints + arenaPoints + assessmentPoints;
+
+    let tier = 'Bronze Explorer';
+    if (totalPoints >= 1000) tier = 'Grandmaster';
+    else if (totalPoints >= 500) tier = 'Diamond Elite';
+    else if (totalPoints >= 250) tier = 'Gold Champion';
+    else if (totalPoints >= 150) tier = 'Silver Coder';
+
+    return res.json({
+      success: true,
+      totalPoints,
+      tier,
+      solvedProblemsCount,
+      arenaMatchesCount: arenaMatches.length,
+      breakdown: {
+        welcomeBonus,
+        practicePoints,
+        arenaPoints,
+        assessmentPoints,
+      },
+    });
+  } catch (error) {
+    console.error('Points summary error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

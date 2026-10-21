@@ -481,6 +481,68 @@ export default function Candidates({ token, user }: CandidatesProps) {
     }
   };
 
+  // Bulk Delete States
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [showBulkDeleteCandidatesModal, setShowBulkDeleteCandidatesModal] = useState(false);
+  const [deletingBulkCandidates, setDeletingBulkCandidates] = useState(false);
+
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [showBulkDeleteSessionsModal, setShowBulkDeleteSessionsModal] = useState(false);
+  const [deletingBulkSessions, setDeletingBulkSessions] = useState(false);
+
+  const handleBulkDeleteCandidates = async () => {
+    if (selectedCandidateIds.length === 0) return;
+    setDeletingBulkCandidates(true);
+    try {
+      const res = await fetch('/api/candidates/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: selectedCandidateIds }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to bulk delete candidates');
+      }
+      setCandidates(prev => prev.filter(c => !selectedCandidateIds.includes(c.id)));
+      if (selectedCandidate && selectedCandidateIds.includes(selectedCandidate.id)) {
+        setSelectedCandidate(null);
+        setCandidateDetail(null);
+      }
+      setSelectedCandidateIds([]);
+      setShowBulkDeleteCandidatesModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting selected candidates');
+    } finally {
+      setDeletingBulkCandidates(false);
+    }
+  };
+
+  const handleBulkDeleteSessions = async () => {
+    if (selectedSessionIds.length === 0) return;
+    setDeletingBulkSessions(true);
+    try {
+      const res = await fetch('/api/sessions/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: selectedSessionIds }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to bulk delete sessions');
+      }
+      setCandidates(prev => prev.map(c => ({
+        ...c,
+        sessions: (c.sessions || []).filter((s: any) => !selectedSessionIds.includes(s.id)),
+      })));
+      setSelectedSessionIds([]);
+      setShowBulkDeleteSessionsModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting selected sessions');
+    } finally {
+      setDeletingBulkSessions(false);
+    }
+  };
+
   useEffect(() => { fetchCandidates(); }, [token]);
 
   const filteredCandidates = React.useMemo(() => {
@@ -807,12 +869,58 @@ export default function Candidates({ token, user }: CandidatesProps) {
                 </span>
               </div>
 
+              {/* Bulk Action Bar for Student Sessions */}
+              {selectedSessionIds.length > 0 && (
+                <div style={{
+                  padding: '10px 16px', background: 'rgba(239, 68, 68, 0.08)', borderBottom: '1px solid rgba(239, 68, 68, 0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ef4444' }}>
+                    ✓ {selectedSessionIds.length} assessment record{selectedSessionIds.length > 1 ? 's' : ''} selected
+                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSessionIds([])}
+                      style={{
+                        padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)',
+                        color: 'var(--text-secondary)', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      Deselect All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkDeleteSessionsModal(true)}
+                      style={{
+                        padding: '5px 14px', borderRadius: 8, border: 'none', background: '#ef4444',
+                        color: '#fff', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                      }}
+                    >
+                      <Trash2 size={13} /> Delete Selected ({selectedSessionIds.length})
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Table */}
               <div style={{ maxHeight: 460, overflowY: 'auto', borderBottom: '1px solid var(--border)' }}>
                 <table className="data-table" style={{ minWidth: 860, borderCollapse: 'separate', borderSpacing: 0 }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-secondary)' }}>
                     <tr>
-                      <th style={{ width: 44, background: 'var(--bg-secondary)', textAlign: 'center' }}></th>
+                      <th style={{ width: 44, background: 'var(--bg-secondary)', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={filteredRows.length > 0 && selectedSessionIds.length === filteredRows.length}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedSessionIds(filteredRows.map(r => r.session.id));
+                            else setSelectedSessionIds([]);
+                          }}
+                          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)', verticalAlign: 'middle' }}
+                          title="Select all"
+                        />
+                      </th>
                       <th style={{ width: 220, background: 'var(--bg-secondary)' }}>Interview / Assessment</th>
                       <th style={{ width: 130, background: 'var(--bg-secondary)', textAlign: 'center' }}>Date Completed</th>
                       <th style={{ width: 110, background: 'var(--bg-secondary)', textAlign: 'center' }}>
@@ -875,6 +983,7 @@ export default function Candidates({ token, user }: CandidatesProps) {
                         : '—';
 
                       const interviewTitle = session.interview?.title || `Assessment #${idx + 1}`;
+                      const isChecked = selectedSessionIds.includes(session.id);
                       return (
                         <tr key={session.id}
                           onClick={() => {
@@ -882,43 +991,20 @@ export default function Candidates({ token, user }: CandidatesProps) {
                             setSelectedCandidate(found || { id: candidateId, name: candidateName || 'Candidate', email: session?.candidateEmail || '' });
                             loadCandidateDetail(candidateId);
                           }}
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: 'pointer', background: isChecked ? 'rgba(37, 99, 235, 0.05)' : undefined }}
                         >
-                          {/* Delete box */}
+                          {/* Checkbox box */}
                           <td style={{ width: 44, textAlign: 'center', padding: '8px 4px' }} onClick={e => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setSessionToDelete({ id: session.id, title: interviewTitle });
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setSelectedSessionIds(prev =>
+                                  prev.includes(session.id) ? prev.filter(id => id !== session.id) : [...prev, session.id]
+                                );
                               }}
-                              title="Delete Session Record"
-                              style={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: 6,
-                                border: '1px solid var(--border)',
-                                background: 'var(--bg-primary)',
-                                color: 'var(--text-muted)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={e => {
-                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                e.currentTarget.style.color = '#ef4444';
-                              }}
-                              onMouseLeave={e => {
-                                e.currentTarget.style.borderColor = 'var(--border)';
-                                e.currentTarget.style.background = 'var(--bg-primary)';
-                                e.currentTarget.style.color = 'var(--text-muted)';
-                              }}
-                            >
-                              <Trash2 style={{ width: 14, height: 14 }} />
-                            </button>
+                              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)', verticalAlign: 'middle' }}
+                            />
                           </td>
 
                           {/* Interview title */}
@@ -1086,12 +1172,63 @@ export default function Candidates({ token, user }: CandidatesProps) {
             ))}
           </div>
 
+          {/* Bulk Action Bar for Candidates */}
+          {selectedCandidateIds.length > 0 && (
+            <div style={{
+              padding: '10px 16px', background: 'rgba(239, 68, 68, 0.08)', borderBottom: '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ef4444' }}>
+                ✓ {selectedCandidateIds.length} candidate{selectedCandidateIds.length > 1 ? 's' : ''} selected
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCandidateIds([])}
+                  style={{
+                    padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)',
+                    color: 'var(--text-secondary)', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Deselect All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteCandidatesModal(true)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 8, border: 'none', background: '#ef4444',
+                    color: '#fff', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <Trash2 size={13} /> Delete Selected ({selectedCandidateIds.length})
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Fixed Length Table Scrollbox with Sticky Header */}
           <div style={{ maxHeight: 460, overflowY: 'auto', borderBottom: '1px solid var(--border)' }}>
             <table className="data-table" style={{ minWidth: 900, borderCollapse: 'separate', borderSpacing: 0 }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-secondary)' }}>
                 <tr>
-                  <th style={{ width: 44, textAlign: 'center', background: 'var(--bg-secondary)' }}></th>
+                  <th style={{ width: 44, textAlign: 'center', background: 'var(--bg-secondary)' }}>
+                    <input
+                      type="checkbox"
+                      checked={paginatedCandidates.length > 0 && paginatedCandidates.every(c => selectedCandidateIds.includes(c.id))}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          const newIds = Array.from(new Set([...selectedCandidateIds, ...paginatedCandidates.map(c => c.id)]));
+                          setSelectedCandidateIds(newIds);
+                        } else {
+                          const pageIds = paginatedCandidates.map(c => c.id);
+                          setSelectedCandidateIds(prev => prev.filter(id => !pageIds.includes(id)));
+                        }
+                      }}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)', verticalAlign: 'middle' }}
+                      title="Select all on this page"
+                    />
+                  </th>
                   <th style={{ width: 200, background: 'var(--bg-secondary)' }}>Candidate</th>
                   <th style={{ width: 110, background: 'var(--bg-secondary)' }}>Status</th>
                   <th style={{ textAlign: 'center', width: 110, background: 'var(--bg-secondary)' }}>
@@ -1136,47 +1273,25 @@ export default function Candidates({ token, user }: CandidatesProps) {
                   const m = getMetrics(c.sessions);
                   const elig = eligibilityLabel(m.pct, m.avgScore);
                   const col = PIPELINE_COLS.find(p => p.id === c.status);
+                  const isChecked = selectedCandidateIds.includes(c.id);
                   return (
                     <tr
                       key={c.id}
                       onClick={() => { setSelectedCandidate(c); loadCandidateDetail(c.id); }}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: 'pointer', background: isChecked ? 'rgba(37, 99, 235, 0.05)' : undefined }}
                     >
-                      {/* Left Delete Box */}
+                      {/* Left Checkbox */}
                       <td style={{ width: 44, textAlign: 'center', padding: '8px 4px' }} onClick={e => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setCandidateToDelete(c);
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedCandidateIds(prev =>
+                              prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                            );
                           }}
-                          title="Delete Candidate"
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 6,
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg-primary)',
-                            color: 'var(--text-muted)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                            e.currentTarget.style.color = '#ef4444';
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = 'var(--border)';
-                            e.currentTarget.style.background = 'var(--bg-primary)';
-                            e.currentTarget.style.color = 'var(--text-muted)';
-                          }}
-                        >
-                          <Trash2 style={{ width: 14, height: 14 }} />
-                        </button>
+                          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)', verticalAlign: 'middle' }}
+                        />
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -2539,6 +2654,158 @@ export default function Candidates({ token, user }: CandidatesProps) {
                   <>
                     <Trash2 style={{ width: 14, height: 14 }} />
                     Delete Record
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BULK DELETE CANDIDATES CONFIRMATION MODAL ── */}
+      {showBulkDeleteCandidatesModal && selectedCandidateIds.length > 0 && (
+        <div style={modalOverlay}>
+          <div style={{
+            ...modalBox,
+            maxWidth: 450,
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            animation: 'fadeIn 0.15s ease',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                color: '#ef4444',
+              }}>
+                <Trash2 style={{ width: 22, height: 22 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  Delete {selectedCandidateIds.length} Candidates?
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.45 }}>
+                  Are you sure you want to permanently delete these <strong style={{ color: 'var(--text-primary)' }}>{selectedCandidateIds.length} selected candidates</strong>?
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
+                  Their entire profiles, assessment records, evaluations, and anti-cheating logs will be permanently deleted.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteCandidatesModal(false)}
+                disabled={deletingBulkCandidates}
+                style={{
+                  padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '0.82rem',
+                  fontWeight: 700, cursor: deletingBulkCandidates ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDeleteCandidates}
+                disabled={deletingBulkCandidates}
+                style={{
+                  padding: '8px 18px', borderRadius: 10, border: 'none', background: '#ef4444',
+                  color: '#ffffff', fontSize: '0.82rem', fontWeight: 800,
+                  cursor: deletingBulkCandidates ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                {deletingBulkCandidates ? (
+                  <>
+                    <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 style={{ width: 14, height: 14 }} />
+                    Delete {selectedCandidateIds.length} Candidates
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BULK DELETE SESSIONS CONFIRMATION MODAL ── */}
+      {showBulkDeleteSessionsModal && selectedSessionIds.length > 0 && (
+        <div style={modalOverlay}>
+          <div style={{
+            ...modalBox,
+            maxWidth: 450,
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            animation: 'fadeIn 0.15s ease',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                color: '#ef4444',
+              }}>
+                <Trash2 style={{ width: 22, height: 22 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  Delete {selectedSessionIds.length} Assessment Records?
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.45 }}>
+                  Are you sure you want to permanently delete these <strong style={{ color: 'var(--text-primary)' }}>{selectedSessionIds.length} selected assessment records</strong>?
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
+                  All evaluation scores, submitted answers, and video recordings will be permanently removed.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteSessionsModal(false)}
+                disabled={deletingBulkSessions}
+                style={{
+                  padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '0.82rem',
+                  fontWeight: 700, cursor: deletingBulkSessions ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDeleteSessions}
+                disabled={deletingBulkSessions}
+                style={{
+                  padding: '8px 18px', borderRadius: 10, border: 'none', background: '#ef4444',
+                  color: '#ffffff', fontSize: '0.82rem', fontWeight: 800,
+                  cursor: deletingBulkSessions ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                {deletingBulkSessions ? (
+                  <>
+                    <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 style={{ width: 14, height: 14 }} />
+                    Delete {selectedSessionIds.length} Records
                   </>
                 )}
               </button>

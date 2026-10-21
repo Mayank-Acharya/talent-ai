@@ -33,16 +33,43 @@ export default function Sidebar({
   isPaid = false, isMasterOwner = false, trialRemainingText = '', onUpgradeClick
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [studentPoints, setStudentPoints] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem(`talentai_points_${user?.id || user?.email || 'student'}`);
+      return stored ? parseInt(stored, 10) : 100;
+    } catch {
+      return 100;
+    }
+  });
+
+  React.useEffect(() => {
+    if (user?.role === 'STUDENT') {
+      const tok = localStorage.getItem('token');
+      if (tok) {
+        fetch('/api/student/points-summary', {
+          headers: { Authorization: `Bearer ${tok}` }
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success && typeof data.totalPoints === 'number') {
+              setStudentPoints(data.totalPoints);
+              localStorage.setItem(`talentai_points_${user?.id || user?.email || 'student'}`, String(data.totalPoints));
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [user]);
 
   const menuItems = user?.role === 'STUDENT'
     ? [
         { id: 'questions',     label: 'Practice Bank', icon: HelpCircle },
         { id: 'tracker',       label: 'Solved & Calendar Tracker', icon: Calendar },
         { id: 'arena',         label: '1v1 Arena & Leaderboard', icon: Swords },
-        { id: 'interviews',    label: 'Templates & Links', icon: Video },
         { id: 'candidates',    label: 'Performance & Reviews', icon: Users },
         { id: 'resume-parser', label: 'Resume Parser',  icon: FileText },
         { id: 'billing',       label: 'Plans & Student Pass', icon: CreditCard },
+        { id: 'settings',      label: 'Settings',       icon: Settings },
       ]
     : defaultMenuItems;
 
@@ -380,6 +407,25 @@ export default function Sidebar({
                   }}>
                     {badgeLabel}
                   </p>
+                  {isStudent && (
+                    <div style={{
+                      marginTop: 4,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      color: '#d97706',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      boxShadow: '0 2px 6px rgba(245, 158, 11, 0.08)',
+                    }}>
+                      <span>⭐</span>
+                      <span>{studentPoints.toLocaleString()} Points</span>
+                    </div>
+                  )}
                 </div>
               </>
             );

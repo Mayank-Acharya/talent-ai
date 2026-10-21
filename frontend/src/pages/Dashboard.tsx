@@ -37,6 +37,42 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<any>(null);
   const [deletingSession, setDeletingSession] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [deletingBulk, setDeletingBulk] = useState(false);
+
+  const handleBulkDeleteSessions = async () => {
+    if (selectedSessionIds.length === 0) return;
+    setDeletingBulk(true);
+    try {
+      const res = await fetch('/api/sessions/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: selectedSessionIds }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to delete selected sessions');
+      }
+      setData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recentSessions: (prev.recentSessions || []).filter((s: any) => !selectedSessionIds.includes(s.id)),
+        };
+      });
+      setSelectedSessionIds([]);
+      setShowBulkDeleteModal(false);
+      fetchData(true);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting selected sessions');
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -384,11 +420,57 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
           </button>
         </div>
 
+        {/* Bulk Action Bar */}
+        {selectedSessionIds.length > 0 && (
+          <div style={{
+            padding: '10px 16px', background: 'rgba(239, 68, 68, 0.08)', borderBottom: '1px solid rgba(239, 68, 68, 0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ef4444' }}>
+              ✓ {selectedSessionIds.length} session{selectedSessionIds.length > 1 ? 's' : ''} selected
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedSessionIds([])}
+                style={{
+                  padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)',
+                  color: 'var(--text-secondary)', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                Deselect All
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(true)}
+                style={{
+                  padding: '5px 14px', borderRadius: 8, border: 'none', background: '#ef4444',
+                  color: '#fff', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <Trash2 size={13} /> Delete Selected ({selectedSessionIds.length})
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
               <tr>
-                <th style={{ width: 44, textAlign: 'center' }}></th>
+                <th style={{ width: 44, textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={recentSessions.length > 0 && selectedSessionIds.length === recentSessions.length}
+                    onChange={e => {
+                      if (e.target.checked) setSelectedSessionIds(recentSessions.map((s: any) => s.id));
+                      else setSelectedSessionIds([]);
+                    }}
+                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)', verticalAlign: 'middle' }}
+                    title="Select all"
+                  />
+                </th>
                 <th>Candidate</th>
                 <th>Interview</th>
                 <th>Token</th>
@@ -410,32 +492,20 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
               ) : (
                 recentSessions.map((session: any) => {
                   const s = STATUS_MAP[session.status] || STATUS_MAP.PENDING;
+                  const isChecked = selectedSessionIds.includes(session.id);
                   return (
-                    <tr key={session.id}>
-                      <td style={{ width: 44, textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSessionToDelete(session)}
-                          title="Delete this interview session"
-                          style={{
-                            width: 28, height: 28, borderRadius: 6,
-                            border: '1px solid var(--border)', background: 'var(--bg-card)',
-                            color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', transition: 'all 0.15s',
+                    <tr key={session.id} style={{ background: isChecked ? 'rgba(37, 99, 235, 0.05)' : undefined }}>
+                      <td style={{ width: 44, textAlign: 'center', padding: '8px 4px' }} onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedSessionIds(prev =>
+                              prev.includes(session.id) ? prev.filter(id => id !== session.id) : [...prev, session.id]
+                            );
                           }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = '#ef4444';
-                            e.currentTarget.style.color = '#ef4444';
-                            e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = 'var(--border)';
-                            e.currentTarget.style.color = 'var(--text-muted)';
-                            e.currentTarget.style.background = 'var(--bg-card)';
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)', verticalAlign: 'middle' }}
+                        />
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 190 }}>
@@ -575,6 +645,64 @@ export default function Dashboard({ token, onTabChange }: DashboardProps) {
                 }}
               >
                 {deletingSession ? 'Deleting...' : 'Delete Session'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Delete Sessions Confirmation Modal ── */}
+      {showBulkDeleteModal && selectedSessionIds.length > 0 && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 18, maxWidth: 460, width: '100%', padding: '24px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', gap: 16
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Trash2 size={22} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                  Delete {selectedSessionIds.length} Session Records?
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#ef4444', fontWeight: 700 }}>
+                  Permanent Action
+                </p>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Are you sure you want to permanently delete these <strong style={{ color: 'var(--text-primary)' }}>{selectedSessionIds.length} selected interview sessions</strong>? All associated evaluation scores, student answers, and plagiarism reports will be removed permanently.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                disabled={deletingBulk}
+                onClick={() => setShowBulkDeleteModal(false)}
+                style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingBulk}
+                onClick={handleBulkDeleteSessions}
+                style={{
+                  padding: '8px 18px', borderRadius: 10, border: 'none',
+                  background: deletingBulk ? 'var(--border)' : '#dc2626',
+                  color: '#fff', fontSize: '0.8rem', fontWeight: 800,
+                  cursor: deletingBulk ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {deletingBulk ? 'Deleting...' : `Delete ${selectedSessionIds.length} Sessions`}
               </button>
             </div>
           </div>

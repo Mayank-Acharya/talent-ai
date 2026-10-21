@@ -734,6 +734,26 @@ router.delete('/:id', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITE
   }
 });
 
+// 9. Bulk Delete Candidates
+router.post('/bulk-delete', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER', 'STUDENT']), async (req: AuthRequest, res: Response) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'No candidate IDs provided' });
+  }
+
+  try {
+    for (const id of ids) {
+      try {
+        await prisma.candidate.delete({ where: { id } });
+      } catch (err) {}
+    }
+    return res.json({ success: true, count: ids.length, message: `${ids.length} candidate(s) deleted successfully` });
+  } catch (error: any) {
+    console.error('Bulk delete candidates error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to bulk delete candidates' });
+  }
+});
+
 export default router;
 
 

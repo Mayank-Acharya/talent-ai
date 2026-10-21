@@ -4,23 +4,13 @@ import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth'
 
 const router = Router();
 
-// Helper to ensure we always have a valid existing Company ID (prevents foreign key errors if DB re-seeded)
-async function getValidCompanyId(reqCompanyId?: string | null): Promise<string> {
+// Helper to ensure we validate the user's Company ID
+async function getValidCompanyId(reqCompanyId?: string | null): Promise<string | null> {
   if (reqCompanyId) {
     const existingCompany = await prisma.company.findUnique({ where: { id: reqCompanyId } });
     if (existingCompany) return existingCompany.id;
   }
-
-  const firstCompany = await prisma.company.findFirst();
-  if (firstCompany) return firstCompany.id;
-
-  const newCompany = await prisma.company.create({
-    data: {
-      name: 'TalentAI Systems',
-      primaryColor: '#2563eb',
-    },
-  });
-  return newCompany.id;
+  return null;
 }
 
 // Helper to format question data safely
@@ -45,10 +35,17 @@ function formatQuestionData(q: any, interviewId: string) {
   };
 }
 
-// 1. List all interviews
+// 1. List all interviews (Strictly scoped to company; empty for students)
 router.get('/', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER', 'INTERVIEWER', 'STUDENT']), async (req: AuthRequest, res: Response) => {
   try {
-    const companyId = await getValidCompanyId(req.user?.companyId);
+    if (req.user?.role === 'STUDENT') {
+      return res.json({ interviews: [] });
+    }
+
+    const companyId = req.user?.companyId ? await getValidCompanyId(req.user?.companyId) : null;
+    if (!companyId) {
+      return res.json({ interviews: [] });
+    }
 
     const interviews = await prisma.interview.findMany({
       where: { companyId },
@@ -78,6 +75,9 @@ router.post('/', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER', '
 
   try {
     const companyId = await getValidCompanyId(req.user?.companyId);
+    if (!companyId) {
+      return res.status(400).json({ error: 'Valid company required to create interview templates' });
+    }
 
     const interview = await prisma.$transaction(async (tx) => {
       // Create parent interview
@@ -120,6 +120,9 @@ router.get('/:id', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER',
 
   try {
     const companyId = await getValidCompanyId(req.user?.companyId);
+    if (!companyId) {
+      return res.status(404).json({ error: 'Interview not found' });
+    }
 
     const interview = await prisma.interview.findFirst({
       where: { id, companyId },
@@ -155,6 +158,9 @@ router.put('/:id', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER',
 
   try {
     const companyId = await getValidCompanyId(req.user?.companyId);
+    if (!companyId) {
+      return res.status(404).json({ error: 'Interview not found' });
+    }
 
     // Check ownership
     const existing = await prisma.interview.findFirst({ where: { id, companyId } });
@@ -206,6 +212,9 @@ router.delete('/:id', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITE
 
   try {
     const companyId = await getValidCompanyId(req.user?.companyId);
+    if (!companyId) {
+      return res.status(404).json({ error: 'Interview not found' });
+    }
 
     const existing = await prisma.interview.findFirst({ where: { id, companyId } });
     if (!existing) {
@@ -241,6 +250,9 @@ router.post('/:id/send-invite', authenticateToken, requireRole(['COMPANY_ADMIN',
     const { sendInterviewInviteEmail } = require('../services/mailer');
     const { sendInterviewInviteSMS } = require('../services/sms');
     const companyId = await getValidCompanyId(req.user?.companyId);
+    if (!companyId) {
+      return res.status(404).json({ error: 'Interview template not found' });
+    }
 
     const interview = await prisma.interview.findFirst({
       where: { id, companyId },
