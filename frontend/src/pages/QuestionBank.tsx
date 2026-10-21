@@ -975,7 +975,7 @@ export default function QuestionBank({ token }: QuestionBankProps) {
     const currentAvailablePoints = 10;
 
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <div style={{ height: "100vh", maxHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "'Inter', system-ui, sans-serif", overflow: "hidden" }}>
 
         {isEvaluating && (
           <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -993,7 +993,7 @@ export default function QuestionBank({ token }: QuestionBankProps) {
         )}
 
         {/* Practice Topbar */}
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-card)" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-card)", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button onClick={() => setActivePracticeQ(null)}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700 }}>
@@ -1033,9 +1033,9 @@ export default function QuestionBank({ token }: QuestionBankProps) {
         </div>
 
         {/* Practice Workspace Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", height: "calc(100vh - 57px)" }}>
-          {/* Left Column: Problem Spec */}
-          <div style={{ borderRight: "1px solid var(--border)", overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", flex: 1, minHeight: 0, overflow: "hidden" }}>
+          {/* Left Column: Problem Spec with Full Smooth Scrolling */}
+          <div style={{ borderRight: "1px solid var(--border)", overflowY: "auto", padding: "24px 24px 120px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 900, marginBottom: 12 }}>{activePracticeQ.title}</h2>
               <FormattedLeetCodeDescription
@@ -1047,8 +1047,8 @@ export default function QuestionBank({ token }: QuestionBankProps) {
           </div>
 
           {/* Right Column: Code Editor & Runner */}
-          <div style={{ display: "flex", flexDirection: "column", background: "var(--bg-card)" }}>
-            <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-secondary)" }}>
+          <div style={{ display: "flex", flexDirection: "column", background: "var(--bg-card)", height: "100%", minHeight: 0, overflow: "hidden" }}>
+            <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-secondary)", flexShrink: 0 }}>
               <div style={{ display: "flex", gap: 6 }}>
                 {["cpp", "python", "javascript", "java"].map((l) => (
                   <button key={l} onClick={() => handlePracticeLangChange(l)}
@@ -1167,39 +1167,7 @@ export default function QuestionBank({ token }: QuestionBankProps) {
                 </div>
               </div>
 
-              {/* Test Cases Comparison Table */}
-              {practiceResult.testCaseResults && practiceResult.testCaseResults.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: "0.76rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Test Cases & Actual Solution Comparison:</span>
-                    <span style={{ color: practiceResult.testCaseResults.every((t: any) => t.passed) ? "#10b981" : "#f59e0b", fontSize: "0.72rem", fontWeight: 800 }}>
-                      {practiceResult.testCaseResults.filter((t: any) => t.passed).length} / {practiceResult.testCaseResults.length} Passed
-                    </span>
-                  </div>
-                  <div style={{ borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden", background: "var(--bg-secondary)" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "60px 1.2fr 1fr 1fr 85px", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--border)", fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", color: "var(--text-muted)" }}>
-                      <span>Case</span>
-                      <span>Input</span>
-                      <span>Actual Sol</span>
-                      <span>Your Output</span>
-                      <span style={{ textAlign: "right" }}>Status</span>
-                    </div>
-                    {practiceResult.testCaseResults.map((tc: any, tIdx: number) => (
-                      <div key={tIdx} style={{ display: "grid", gridTemplateColumns: "60px 1.2fr 1fr 1fr 85px", gap: 8, padding: "8px 12px", borderBottom: tIdx < practiceResult.testCaseResults.length - 1 ? "1px solid var(--border)" : "none", fontSize: "0.72rem", alignItems: "center", background: tc.passed ? "rgba(16,185,129,0.02)" : "rgba(239,68,68,0.04)" }}>
-                        <span style={{ fontWeight: 800, color: "var(--text-muted)" }}>#{tIdx + 1}</span>
-                        <code style={{ fontSize: "0.68rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tc.input}</code>
-                        <code style={{ fontSize: "0.68rem", color: "#10b981", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tc.expected}</code>
-                        <code style={{ fontSize: "0.68rem", color: tc.passed ? "#10b981" : "#ef4444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tc.actual || '(none)'}</code>
-                        <div style={{ textAlign: "right" }}>
-                          <span style={{ fontSize: "0.65rem", fontWeight: 900, padding: "2px 6px", borderRadius: 6, background: tc.passed ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)", color: tc.passed ? "#10b981" : "#ef4444" }}>
-                            {tc.passed ? "PASSED ✓" : "FAILED ✕"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+
 
               {/* AI Feedback */}
               <div style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-secondary)", fontSize: "0.78rem", lineHeight: 1.6, marginBottom: 16 }}>

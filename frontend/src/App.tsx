@@ -173,27 +173,28 @@ export default function App() {
         fontFamily: "'Inter', sans-serif",
       }}
     >
-      {/* ── Active Free Trial Top Banner (Student: 7 Days | Org: 2 Hours) ── */}
+      {/* ── Compact Floating Free Trial Box with Timer (Zero vertical layout intrusion) ── */}
       {!isMasterOwner && !isTrialExpired && (
-        <div className="force-white w-full px-4 py-2 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white text-xs font-bold flex items-center justify-between shrink-0 shadow-md z-50" style={{ color: '#ffffff' }}>
-          <div className="flex items-center gap-2" style={{ color: '#ffffff' }}>
-            <span className="p-1 rounded-full bg-white/20">
-              {isStudent ? <GraduationCap className="w-3.5 h-3.5 text-white" /> : <Building2 className="w-3.5 h-3.5 text-white" />}
+        <div
+          className="fixed top-3 right-6 z-50 flex items-center gap-2.5 px-3.5 py-1.5 rounded-full shadow-xl border border-blue-400/40 backdrop-blur-md transition-all animate-fade-in-up"
+          style={{
+            background: 'rgba(30, 58, 138, 0.92)',
+            color: '#ffffff',
+          }}
+        >
+          <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+            <span className="p-1 rounded-full bg-blue-500/30 shrink-0">
+              {isStudent ? <GraduationCap className="w-3.5 h-3.5 text-blue-200" /> : <Building2 className="w-3.5 h-3.5 text-blue-200" />}
             </span>
-            <span style={{ color: '#ffffff' }}>
-              <strong style={{ color: '#ffffff' }}>
-                {isStudent ? '🎓 Student 7-Day Free Trial Active:' : '🏢 Organization 2-Hour Free Trial Active:'}
-              </strong>{' '}
-              {formatRemaining()}. Full access to all tools &amp; assessments.
-            </span>
+            <span className="text-blue-100">{isStudent ? '7-Day Trial:' : '2-Hr Trial:'}</span>
+            <span className="font-extrabold text-amber-300 font-mono tracking-wide ml-0.5">{formatRemaining()}</span>
           </div>
           <button
             onClick={() => setActiveTab('billing')}
-            className="px-3 py-1 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-black text-[11px] shadow-sm flex items-center gap-1 transition-all cursor-pointer"
-            style={{ color: '#1d4ed8' }}
+            className="px-2.5 py-0.5 rounded-full bg-white text-blue-800 hover:bg-blue-50 font-black text-[10px] tracking-wide shadow-sm transition-all cursor-pointer flex items-center gap-1 shrink-0 ml-1"
           >
-            <span>{isStudent ? 'Student Pass (₹199)' : 'Organisation Suite (₹1,999)'}</span>
-            <ArrowRight className="w-3 h-3" />
+            <span>Upgrade</span>
+            <ArrowRight className="w-2.5 h-2.5" />
           </button>
         </div>
       )}
