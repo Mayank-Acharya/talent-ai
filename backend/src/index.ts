@@ -63,12 +63,16 @@ app.use('/api/student', studentRouter);
 app.use('/api/arena', arenaRouter);
 
 // Basic health check endpoint
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'TalentAI Backend API is running', time: new Date() });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-// Start Express Server
-app.listen(PORT, () => {
-  console.log(`[TalentAI Server] running on http://localhost:${PORT}`);
+// Start Express Server (listen on 0.0.0.0)
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`[TalentAI Server] running on http://0.0.0.0:${PORT}`);
   console.log(`[Database Connection] using configuration in Prisma schema`);
 });
