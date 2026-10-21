@@ -10,7 +10,10 @@
   --bg-secondary:  #0a0f1e;
   --bg-card:       rgba(15,23,42,0.8);
   --bg-hover:      rgba(255,255,255,0.04);
-  --border:        rgba(255,255,255,0.07);
+  --bg-input:      rgba(15,23,42,0.65);
+  --bg-subtle:     rgba(255,255,255,0.03);
+  --border:        rgba(255,255,255,0.08);
+  --border-color:  rgba(255,255,255,0.08);
   --border-hover:  rgba(99,162,255,0.3);
   --text-primary:  #f8fafc;
   --text-secondary:#cbd5e1;
@@ -26,24 +29,27 @@
   --shadow-glow:   0 0 40px -10px rgba(37,99,235,0.4);
 }
 
-/* ─── Light Mode ─────────────────────────────────────── */
+/* ─── Light Mode (Pure Clean White Surfaces) ─────────── */
 .light {
-  --bg-primary:    #f0f4ff;
+  --bg-primary:    #ffffff;
   --bg-secondary:  #ffffff;
   --bg-card:       #ffffff;
-  --bg-hover:      #f1f5ff;
-  --border:        #dde4f0;
+  --bg-hover:      #f8fafc;
+  --bg-input:      #ffffff;
+  --bg-subtle:     #f8fafc;
+  --border:        #e2e8f0;
+  --border-color:  #e2e8f0;
   --border-hover:  #2563eb;
   --text-primary:  #090d16;
   --text-secondary:#1e293b;
-  --text-muted:    #334155;
+  --text-muted:    #475569;
   --brand:         #2563eb;
   --brand-light:   #3b82f6;
   --brand-dark:    #1d4ed8;
-  --brand-glow:    rgba(37,99,235,0.2);
+  --brand-glow:    rgba(37,99,235,0.15);
   --sidebar-bg:    #ffffff;
-  --shadow-card:   0 2px 12px -2px rgba(37,99,235,0.1), 0 0 0 1px #dde4f0;
-  --shadow-glow:   0 0 30px -8px rgba(37,99,235,0.3);
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px #e2e8f0;
+  --shadow-glow:   0 0 25px -5px rgba(37,99,235,0.2);
 }
 
 /* ─── Base ───────────────────────────────────────────── */
@@ -184,7 +190,7 @@
 /* ─── Inputs ─────────────────────────────────────────── */
 .input-field {
   width: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.72rem 1rem;

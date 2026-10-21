@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   User, Building, Building2, Palette, ShieldAlert, Save, CheckCircle2,
-  FileText, Globe, Lock, Bell, Monitor, Zap, GraduationCap, Briefcase,
+  Globe, Lock, Bell, Monitor, Zap, GraduationCap, Briefcase,
   ExternalLink, Code2, Sparkles, Key, Mail, Phone, MapPin, Award,
   Check, RefreshCw, Sliders, Eye, EyeOff, AlertCircle, ShieldCheck,
-  Clock, ArrowRight, Target
+  Target
 } from 'lucide-react';
 
 interface SettingsProps {
@@ -72,7 +72,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
   const isStudent = user?.role === 'STUDENT';
   const storageKey = `talentai_profile_${user?.id || user?.email || 'user'}`;
 
-  // Read saved cached profile from localStorage
+  // Read saved profile from localStorage
   const savedProfile = (() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -83,7 +83,6 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
   })();
 
   // ── Form State ──
-  // Profile (Student & Recruiter common/specific)
   const [name, setName] = useState(savedProfile.name || user?.name || '');
   const [email] = useState(user?.email || '');
   const [phone, setPhone] = useState(savedProfile.phone || '');
@@ -178,7 +177,6 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
     setSaveError('');
 
     try {
-      // 1. Compile full profile payload
       const profileData = {
         name,
         phone,
@@ -212,10 +210,8 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
         updatedAt: new Date().toISOString(),
       };
 
-      // 2. Persist to localStorage
       localStorage.setItem(storageKey, JSON.stringify(profileData));
 
-      // 3. Update User in DB via /api/auth/me
       const authRes = await fetch('/api/auth/me', {
         method: 'PUT',
         headers: {
@@ -229,7 +225,6 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
         onUserUpdate?.({ ...authData.user, ...profileData });
       }
 
-      // 4. If organization, update company branding in DB via /api/companies/me
       if (!isStudent && company) {
         const compRes = await fetch('/api/companies/me', {
           method: 'PUT',
@@ -306,9 +301,9 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-6 w-full overflow-y-auto max-w-7xl mx-auto" style={{ minHeight: '100%' }}>
+    <div className="p-6 md:p-8 space-y-6 w-full overflow-y-auto max-w-7xl mx-auto bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-200" style={{ minHeight: '100%' }}>
       {/* ── Top Header & Role Badge ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-[var(--text-primary)] tracking-tight">
@@ -317,15 +312,15 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
             <span
               className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider"
               style={{
-                background: isStudent ? 'rgba(59,130,246,0.15)' : 'rgba(168,85,247,0.15)',
-                color: isStudent ? '#60a5fa' : '#c084fc',
-                border: `1px solid ${isStudent ? 'rgba(59,130,246,0.3)' : 'rgba(168,85,247,0.3)'}`,
+                background: isStudent ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)',
+                color: isStudent ? '#2563eb' : '#7c3aed',
+                border: `1px solid ${isStudent ? 'rgba(59,130,246,0.25)' : 'rgba(168,85,247,0.25)'}`,
               }}
             >
               {isStudent ? '🎓 Student / Candidate' : '🏢 Company Admin'}
             </span>
           </div>
-          <p className="text-xs md:text-sm text-[var(--text-secondary)] mt-1">
+          <p className="text-xs md:text-sm text-[var(--text-muted)] mt-1">
             {isStudent
               ? 'Manage your personal details, developer accounts (GitHub, LinkedIn, LeetCode), and coding preferences'
               : 'Configure company branding, recruiter identity, anti-cheat proctoring rules, and developer links'}
@@ -335,7 +330,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
         {/* Global Save Button in Header */}
         <div className="flex items-center gap-3">
           {saveSuccess && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold animate-fade-in">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-fade-in">
               <CheckCircle2 className="w-4 h-4" />
               <span>Saved Successfully!</span>
             </div>
@@ -343,7 +338,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
           <button
             onClick={handleSaveProfile}
             disabled={saveLoading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
           >
             {saveLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>{saveLoading ? 'Saving...' : 'Save Settings'}</span>
@@ -352,7 +347,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
       </div>
 
       {saveError && (
-        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center gap-3 text-red-400 text-xs font-semibold">
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center gap-3 text-red-500 text-xs font-semibold">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{saveError}</span>
         </div>
@@ -363,7 +358,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
         
         {/* Navigation Sidebar Tabs */}
         <div className="lg:col-span-1 space-y-4">
-          <div className="p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1">
+          <div className="p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-1">
             {tabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -373,14 +368,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                     isActive
-                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)] border border-transparent'
+                      ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shadow-sm'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] border border-transparent'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
                   <span className="flex-1">{tab.label}</span>
                   {tab.id === 'social' && connectedSocialCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-indigo-500/20 text-indigo-300">
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
                       {connectedSocialCount}
                     </span>
                   )}
@@ -390,7 +385,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
           </div>
 
           {/* Quick User Identity Card */}
-          <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-3">
+          <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-md">
                 {(name || email || 'U').substring(0, 2).toUpperCase()}
@@ -401,14 +396,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               </div>
             </div>
             
-            <div className="pt-2 border-t border-[var(--border-color)] text-[11px] space-y-1.5 text-[var(--text-secondary)]">
+            <div className="pt-2 border-t border-[var(--border)] text-[11px] space-y-1.5 text-[var(--text-secondary)]">
               <div className="flex justify-between items-center">
                 <span>Account Type:</span>
                 <span className="font-bold text-[var(--text-primary)]">{isStudent ? 'Candidate / Student' : 'Company Admin'}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Dev Accounts:</span>
-                <span className="font-bold text-emerald-400">{connectedSocialCount} Connected</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{connectedSocialCount} Connected</span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Member Since:</span>
@@ -425,14 +420,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 1 (STUDENT): PERSONAL PROFILE
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'profile' && isStudent && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <User className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Personal & Academic Details</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Your student credentials displayed across mock interviews and ATS resume evaluations</p>
+                  <p className="text-xs text-[var(--text-muted)]">Your student credentials displayed across mock interviews and ATS resume evaluations</p>
                 </div>
               </div>
 
@@ -450,7 +445,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         required
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. Mayank Kumar Acharya"
                       />
                     </div>
@@ -467,9 +462,9 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="email"
                         readOnly
                         value={email}
-                        className="w-full pl-10 pr-24 py-2.5 rounded-xl bg-black/40 border border-[var(--border-color)] text-xs text-[var(--text-secondary)] cursor-not-allowed opacity-80"
+                        className="w-full pl-10 pr-24 py-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] text-xs text-[var(--text-secondary)] cursor-not-allowed opacity-90 shadow-sm"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                         Verified
                       </span>
                     </div>
@@ -486,7 +481,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="tel"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="+91 98765 43210"
                       />
                     </div>
@@ -503,7 +498,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="text"
                         value={location}
                         onChange={e => setLocation(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. Bengaluru, Karnataka, India"
                       />
                     </div>
@@ -520,7 +515,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="text"
                         value={college}
                         onChange={e => setCollege(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. IIT Delhi, BITS Pilani, etc."
                       />
                     </div>
@@ -537,7 +532,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="text"
                         value={degree}
                         onChange={e => setDegree(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. B.Tech Computer Science & Engineering"
                       />
                     </div>
@@ -551,7 +546,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     <select
                       value={graduationYear}
                       onChange={e => setGraduationYear(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                     >
                       <option value="2023">2023 (Graduated)</option>
                       <option value="2024">2024 (Graduated)</option>
@@ -573,7 +568,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="text"
                         value={targetRole}
                         onChange={e => setTargetRole(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. Software Engineer (SDE-1), Full Stack Developer"
                       />
                     </div>
@@ -589,17 +584,16 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     rows={3}
                     value={bio}
                     onChange={e => setBio(e.target.value)}
-                    className="w-full p-4 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 resize-none"
+                    className="w-full p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 resize-none shadow-sm"
                     placeholder="Brief description of your key skills, technical stack, and coding achievements..."
                   />
                 </div>
 
-                {/* Submit button */}
                 <div className="pt-2 flex items-center justify-end">
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Profile</span>
@@ -613,14 +607,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 1 (ORG): ORGANIZATION PROFILE & ADMIN
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'company' && !isStudent && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-600 dark:text-purple-400">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Company & Recruiter Details</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Manage your hiring organization profile and recruiter contact info</p>
+                  <p className="text-xs text-[var(--text-muted)]">Manage your hiring organization profile and recruiter contact info</p>
                 </div>
               </div>
 
@@ -638,7 +632,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         required
                         value={companyName}
                         onChange={e => setCompanyName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. Acme Technologies"
                       />
                     </div>
@@ -656,7 +650,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         required
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="e.g. Alex Johnson"
                       />
                     </div>
@@ -673,7 +667,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="email"
                         readOnly
                         value={email}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/40 border border-[var(--border-color)] text-xs text-[var(--text-secondary)] cursor-not-allowed opacity-80"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] text-xs text-[var(--text-secondary)] cursor-not-allowed opacity-90 shadow-sm"
                       />
                     </div>
                   </div>
@@ -689,7 +683,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="url"
                         value={websiteUrl}
                         onChange={e => setWebsiteUrl(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                         placeholder="https://company.com"
                       />
                     </div>
@@ -703,7 +697,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     <select
                       value={industry}
                       onChange={e => setIndustry(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                     >
                       <option value="Technology & SaaS">Technology & SaaS</option>
                       <option value="Fintech & Banking">Fintech & Banking</option>
@@ -723,7 +717,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     <select
                       value={companySize}
                       onChange={e => setCompanySize(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                     >
                       <option value="1-10 employees">1 - 10 employees (Seed stage)</option>
                       <option value="11-50 employees">11 - 50 employees (Early stage)</option>
@@ -743,7 +737,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     rows={3}
                     value={bio}
                     onChange={e => setBio(e.target.value)}
-                    className="w-full p-4 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 resize-none"
+                    className="w-full p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 resize-none shadow-sm"
                     placeholder="Short description of your engineering culture, tech stack, and what makes your company exciting..."
                   />
                 </div>
@@ -752,7 +746,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Company Profile</span>
@@ -766,17 +760,17 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 2: DEVELOPER & SOCIAL ACCOUNTS (STUDENT & ORG)
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'social' && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--border-color)]">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[var(--text-primary)]">
                       {isStudent ? 'Developer & Social Profiles' : 'Company Social & Public Handles'}
                     </h3>
-                    <p className="text-xs text-[var(--text-secondary)]">
+                    <p className="text-xs text-[var(--text-muted)]">
                       {isStudent
                         ? 'Connect your GitHub, LinkedIn, LeetCode and Portfolio for recruiters and automated ATS evaluations'
                         : 'Connect official LinkedIn company page, GitHub organization, and public job portal'}
@@ -784,7 +778,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   </div>
                 </div>
 
-                <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+                <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{connectedSocialCount} / {isStudent ? 6 : 4} Linked</span>
                 </div>
@@ -792,10 +786,10 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
 
               <form onSubmit={handleSaveProfile} className="space-y-5">
                 {/* 1. LinkedIn */}
-                <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-blue-500/30 transition-all">
+                <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-blue-500/40 transition-all shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-[#0077b5]/20 text-[#0077b5]">
+                      <span className="p-1.5 rounded-lg bg-[#0077b5]/15 text-[#0077b5]">
                         <LinkedInIcon className="w-4 h-4" />
                       </span>
                       <span>{isStudent ? 'LinkedIn Profile URL' : 'LinkedIn Company Page'}</span>
@@ -804,7 +798,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       <button
                         type="button"
                         onClick={() => handleTestLink(linkedinUrl)}
-                        className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>Open</span>
                         <ExternalLink className="w-3 h-3" />
@@ -815,16 +809,16 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     type="url"
                     value={linkedinUrl}
                     onChange={e => setLinkedinUrl(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 shadow-sm"
                     placeholder={isStudent ? 'https://linkedin.com/in/username' : 'https://linkedin.com/company/yourcompany'}
                   />
                 </div>
 
                 {/* 2. GitHub */}
-                <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-slate-400/30 transition-all">
+                <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-slate-500/40 transition-all shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-white/10 text-white">
+                      <span className="p-1.5 rounded-lg bg-slate-500/15 text-slate-800 dark:text-slate-100">
                         <GitHubIcon className="w-4 h-4" />
                       </span>
                       <span>{isStudent ? 'GitHub Profile URL' : 'GitHub Organization / Repos'}</span>
@@ -833,7 +827,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       <button
                         type="button"
                         onClick={() => handleTestLink(githubUrl)}
-                        className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>Open</span>
                         <ExternalLink className="w-3 h-3" />
@@ -844,17 +838,17 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     type="url"
                     value={githubUrl}
                     onChange={e => setGithubUrl(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-slate-400"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-slate-500 shadow-sm"
                     placeholder={isStudent ? 'https://github.com/username' : 'https://github.com/your-org'}
                   />
                 </div>
 
                 {/* 3. LeetCode (Student) or Career Page (Org) */}
                 {isStudent ? (
-                  <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-amber-500/30 transition-all">
+                  <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-amber-500/40 transition-all shadow-sm">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        <span className="p-1.5 rounded-lg bg-amber-500/20 text-[#FFA116]">
+                        <span className="p-1.5 rounded-lg bg-amber-500/15 text-[#FFA116]">
                           <LeetCodeIcon className="w-4 h-4" />
                         </span>
                         <span>LeetCode Profile Handle or URL</span>
@@ -863,7 +857,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         <button
                           type="button"
                           onClick={() => handleTestLink(leetcodeUrl.startsWith('http') ? leetcodeUrl : `https://leetcode.com/u/${leetcodeUrl}`)}
-                          className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Open</span>
                           <ExternalLink className="w-3 h-3" />
@@ -874,15 +868,15 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       type="text"
                       value={leetcodeUrl}
                       onChange={e => setLeetcodeUrl(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500"
+                      className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500 shadow-sm"
                       placeholder="https://leetcode.com/u/your_username or just username"
                     />
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-emerald-500/30 transition-all">
+                  <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-emerald-500/40 transition-all shadow-sm">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+                        <span className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                           <Briefcase className="w-4 h-4" />
                         </span>
                         <span>Careers / Job Openings Page</span>
@@ -891,7 +885,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         <button
                           type="button"
                           onClick={() => handleTestLink(websiteUrl)}
-                          className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Open</span>
                           <ExternalLink className="w-3 h-3" />
@@ -902,7 +896,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       type="url"
                       value={websiteUrl}
                       onChange={e => setWebsiteUrl(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500"
+                      className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500 shadow-sm"
                       placeholder="https://company.com/careers"
                     />
                   </div>
@@ -910,10 +904,10 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
 
                 {/* 4. Codeforces / CodeChef (Student) */}
                 {isStudent && (
-                  <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-sky-500/30 transition-all">
+                  <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-sky-500/40 transition-all shadow-sm">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        <span className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400">
+                        <span className="p-1.5 rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400">
                           <CodeforcesIcon className="w-4 h-4" />
                         </span>
                         <span>Codeforces / Competitive Programming Profile</span>
@@ -922,7 +916,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         <button
                           type="button"
                           onClick={() => handleTestLink(codeforcesUrl.startsWith('http') ? codeforcesUrl : `https://codeforces.com/profile/${codeforcesUrl}`)}
-                          className="text-[11px] font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Open</span>
                           <ExternalLink className="w-3 h-3" />
@@ -933,17 +927,17 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       type="text"
                       value={codeforcesUrl}
                       onChange={e => setCodeforcesUrl(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500"
+                      className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 shadow-sm"
                       placeholder="https://codeforces.com/profile/handle or handle"
                     />
                   </div>
                 )}
 
                 {/* 5. Personal Portfolio / Website */}
-                <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-purple-500/30 transition-all">
+                <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-purple-500/40 transition-all shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400">
+                      <span className="p-1.5 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400">
                         <Globe className="w-4 h-4" />
                       </span>
                       <span>{isStudent ? 'Portfolio / Personal Website' : 'Company Engineering Blog / Tech Site'}</span>
@@ -952,7 +946,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       <button
                         type="button"
                         onClick={() => handleTestLink(portfolioUrl)}
-                        className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>Open</span>
                         <ExternalLink className="w-3 h-3" />
@@ -963,16 +957,16 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     type="url"
                     value={portfolioUrl}
                     onChange={e => setPortfolioUrl(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-purple-500"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-purple-500 shadow-sm"
                     placeholder="https://myportfolio.dev"
                   />
                 </div>
 
                 {/* 6. Twitter / X */}
-                <div className="p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-zinc-400/30 transition-all">
+                <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-zinc-500/40 transition-all shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-white/10 text-white">
+                      <span className="p-1.5 rounded-lg bg-zinc-500/15 text-zinc-800 dark:text-zinc-100">
                         <TwitterIcon className="w-4 h-4" />
                       </span>
                       <span>Twitter / X Profile</span>
@@ -981,7 +975,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       <button
                         type="button"
                         onClick={() => handleTestLink(twitterUrl.startsWith('http') ? twitterUrl : `https://x.com/${twitterUrl.replace('@', '')}`)}
-                        className="text-[11px] font-bold text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>Open</span>
                         <ExternalLink className="w-3 h-3" />
@@ -992,7 +986,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     type="text"
                     value={twitterUrl}
                     onChange={e => setTwitterUrl(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg bg-black/30 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-zinc-400"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-zinc-500 shadow-sm"
                     placeholder="https://x.com/your_handle or @your_handle"
                   />
                 </div>
@@ -1001,7 +995,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Developer Links</span>
@@ -1015,14 +1009,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 3 (STUDENT): CODING PREFERENCES
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'preferences' && isStudent && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Practice & IDE Preferences</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Customize your default coding environment for DSA Arena and Practice sessions</p>
+                  <p className="text-xs text-[var(--text-muted)]">Customize your default coding environment for DSA Arena and Practice sessions</p>
                 </div>
               </div>
 
@@ -1039,10 +1033,10 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="button"
                         key={lang}
                         onClick={() => setPreferredLanguage(lang)}
-                        className={`p-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer shadow-sm ${
                           preferredLanguage === lang
-                            ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-sm'
-                            : 'bg-black/20 border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white'
+                            ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:border-slate-400'
                         }`}
                       >
                         {lang}
@@ -1067,10 +1061,10 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         type="button"
                         key={item.val}
                         onClick={() => setDailyGoal(item.val)}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer shadow-sm ${
                           dailyGoal === item.val
-                            ? 'bg-indigo-500/15 border-indigo-500 text-indigo-300'
-                            : 'bg-black/20 border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white'
+                            ? 'bg-indigo-500/15 border-indigo-500 text-indigo-600 dark:text-indigo-300'
+                            : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:border-slate-400'
                         }`}
                       >
                         <p className="text-xs font-bold">{item.label}</p>
@@ -1082,7 +1076,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
 
                 {/* Editor Toggles */}
                 <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-[var(--border-color)]">
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm">
                     <div>
                       <p className="text-xs font-bold text-[var(--text-primary)]">Audio Effects on Test Case Success</p>
                       <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Play celebratory chimes when you pass 100% test cases in the Arena</p>
@@ -1095,7 +1089,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-[var(--border-color)]">
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm">
                     <div>
                       <p className="text-xs font-bold text-[var(--text-primary)]">Auto-Format Code On Run</p>
                       <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Automatically indents and cleans syntax using Prettier / Clang formatter before compilation</p>
@@ -1113,7 +1107,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Preferences</span>
@@ -1127,14 +1121,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 3 (ORG): BRAND IDENTITY
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'branding' && !isStudent && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center text-violet-600 dark:text-violet-400">
                   <Palette className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Company Brand Identity</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Customize the logo, accent colors, and candidate invitation theme</p>
+                  <p className="text-xs text-[var(--text-muted)]">Customize the logo, accent colors, and candidate invitation theme</p>
                 </div>
               </div>
 
@@ -1150,12 +1144,12 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       type="url"
                       value={logoUrl}
                       onChange={e => setLogoUrl(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                       placeholder="https://yourcompany.com/logo.png"
                     />
                   </div>
                   {logoUrl && (
-                    <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-[var(--border-color)]">
+                    <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] shadow-sm">
                       <img
                         src={logoUrl}
                         alt="Logo preview"
@@ -1181,7 +1175,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                         key={col.value}
                         type="button"
                         onClick={() => setPrimaryColor(col.value)}
-                        className="relative h-10 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                        className="relative h-10 rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-sm"
                         style={{
                           background: col.value,
                           border: primaryColor === col.value ? '2px solid white' : '2px solid transparent',
@@ -1194,7 +1188,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     ))}
                   </div>
 
-                  <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-[var(--border-color)]">
+                  <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] shadow-sm">
                     <div className="w-7 h-7 rounded-lg shadow-sm" style={{ background: primaryColor }} />
                     <p className="text-xs font-mono font-bold text-[var(--text-primary)]">{primaryColor}</p>
                     <div className="ml-auto">
@@ -1214,7 +1208,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     rows={3}
                     value={emailSignature}
                     onChange={e => setEmailSignature(e.target.value)}
-                    className="w-full p-4 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 resize-none font-sans"
+                    className="w-full p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 resize-none font-sans shadow-sm"
                     placeholder="Best regards,\nThe Technical Hiring Team"
                   />
                 </div>
@@ -1223,7 +1217,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Brand Identity</span>
@@ -1237,14 +1231,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 4 (ORG): PROCTORING & ANTI-CHEAT
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'proctoring' && !isStudent && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Anti-Cheat & Proctoring Rules</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Strictness controls for tab switching, fullscreen enforcement, and plagiarism audit logging</p>
+                  <p className="text-xs text-[var(--text-muted)]">Strictness controls for tab switching, fullscreen enforcement, and plagiarism audit logging</p>
                 </div>
               </div>
 
@@ -1280,17 +1274,17 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       <div
                         key={item.id}
                         onClick={() => setProctoringStrictness(item.id as any)}
-                        className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                        className={`p-4 rounded-xl border transition-all cursor-pointer shadow-sm ${
                           proctoringStrictness === item.id
-                            ? 'bg-indigo-500/15 border-indigo-500 shadow-sm'
-                            : 'bg-black/20 border-[var(--border-color)] hover:border-white/20'
+                            ? 'bg-indigo-500/15 border-indigo-500'
+                            : 'bg-[var(--bg-card)] border-[var(--border)] hover:border-indigo-500/40'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-[var(--text-primary)]">{item.title}</span>
                           <span
                             className="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            style={{ background: `${item.color}20`, color: item.color }}
+                            style={{ background: `${item.color}15`, color: item.color }}
                           >
                             {item.badge}
                           </span>
@@ -1309,7 +1303,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <select
                     value={sessionExpiryHours}
                     onChange={e => setSessionExpiryHours(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 shadow-sm"
                   >
                     <option value="24">24 Hours (Fast-track recruitment)</option>
                     <option value="48">48 Hours (Standard)</option>
@@ -1325,12 +1319,12 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                     { title: 'Automated Plagiarism Scans', desc: 'Code similarity is analyzed against open repositories and known solutions.', status: 'Active' },
                     { title: 'Gemini Big-O Time & Space Complexity Benchmark', desc: 'Compares candidate solution O(N) complexity with optimal target algorithms.', status: 'Active' },
                   ].map((f, i) => (
-                    <div key={i} className="flex items-center justify-between p-3.5 rounded-xl bg-black/20 border border-[var(--border-color)]">
+                    <div key={i} className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm">
                       <div>
                         <p className="text-xs font-bold text-[var(--text-primary)]">{f.title}</p>
                         <p className="text-[11px] text-[var(--text-muted)]">{f.desc}</p>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                         {f.status}
                       </span>
                     </div>
@@ -1341,7 +1335,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Anti-Cheat Rules</span>
@@ -1355,14 +1349,14 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB 5 (ORG): NOTIFICATIONS
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'notifications' && !isStudent && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <Bell className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Recruiter Notification Alerts</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Configure what email and in-app alerts you receive for candidate pipelines</p>
+                  <p className="text-xs text-[var(--text-muted)]">Configure what email and in-app alerts you receive for candidate pipelines</p>
                 </div>
               </div>
 
@@ -1396,7 +1390,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <div
                     key={idx}
                     onClick={item.toggle}
-                    className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-[var(--border-color)] hover:border-white/10 transition-all cursor-pointer"
+                    className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] hover:border-indigo-500/30 transition-all cursor-pointer shadow-sm"
                   >
                     <div className="pr-4">
                       <p className="text-xs font-bold text-[var(--text-primary)]">{item.title}</p>
@@ -1415,7 +1409,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                   <button
                     type="submit"
                     disabled={saveLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Notifications</span>
@@ -1429,26 +1423,26 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               TAB: SECURITY & PASSWORD (BOTH STUDENT & ORG)
           ───────────────────────────────────────────────────────────── */}
           {activeTab === 'security' && (
-            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border-color)]">
-                <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+            <div className="p-6 md:p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-[var(--border)]">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-600 dark:text-red-400">
                   <Lock className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)]">Password & Account Security</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Update your account password and review active login credentials</p>
+                  <p className="text-xs text-[var(--text-muted)]">Update your account password and review active login credentials</p>
                 </div>
               </div>
 
               {passwordSuccess && (
-                <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center gap-3 text-emerald-400 text-xs font-bold animate-fade-in">
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-fade-in">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>{passwordSuccess}</span>
                 </div>
               )}
 
               {passwordError && (
-                <div className="p-4 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center gap-3 text-red-400 text-xs font-bold animate-fade-in">
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center gap-3 text-red-600 dark:text-red-400 text-xs font-bold animate-fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{passwordError}</span>
                 </div>
@@ -1467,13 +1461,13 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       required
                       value={currentPassword}
                       onChange={e => setCurrentPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-red-500"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-red-500 shadow-sm"
                       placeholder="••••••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-white cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -1493,7 +1487,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       minLength={6}
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-red-500"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-red-500 shadow-sm"
                       placeholder="••••••••••••"
                     />
                   </div>
@@ -1512,7 +1506,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                       minLength={6}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/20 border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-red-500"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-red-500 shadow-sm"
                       placeholder="••••••••••••"
                     />
                   </div>
@@ -1521,7 +1515,7 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
                 <button
                   type="submit"
                   disabled={passwordLoading}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md shadow-red-600/25 transition-all cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {passwordLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
                   <span>{passwordLoading ? 'Updating...' : 'Update Password'}</span>
@@ -1529,17 +1523,17 @@ export default function Settings({ token, company, onCompanyUpdate, user, onUser
               </form>
 
               {/* Session Overview */}
-              <div className="pt-6 border-t border-[var(--border-color)] space-y-3">
+              <div className="pt-6 border-t border-[var(--border)] space-y-3">
                 <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Active Device Session</h4>
-                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-[var(--border-color)]">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm">
                   <div className="flex items-center gap-3">
-                    <Monitor className="w-5 h-5 text-indigo-400" />
+                    <Monitor className="w-5 h-5 text-indigo-500" />
                     <div>
                       <p className="text-xs font-bold text-[var(--text-primary)]">Current Web Session (Chrome / Windows)</p>
                       <p className="text-[11px] text-[var(--text-muted)]">Signed in via JWT Token • SSL TLS 1.3 Encrypted</p>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                     Active Now
                   </span>
                 </div>
