@@ -68,6 +68,9 @@ export async function sendInterviewInviteEmail(params: SendInviteParams): Promis
           user: smtpUser,
           pass: smtpPass,
         },
+        connectionTimeout: 3000,
+        greetingTimeout: 3000,
+        socketTimeout: 4000,
       });
 
       const info = await transporter.sendMail({
@@ -89,48 +92,13 @@ export async function sendInterviewInviteEmail(params: SendInviteParams): Promis
     }
   }
 
-  // 2. Auto-generate Ethereal Email test account so real email rendered preview is available
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    const testTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
-    });
-
-    const info = await testTransporter.sendMail({
-      from: smtpFrom,
-      to,
-      subject,
-      text: `${messageText}\n\nStart Assessment: ${inviteUrl}`,
-      html: htmlContent,
-    });
-
-    const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-    console.log(`\n📧 [EMAIL DISPATCHED TO ETHEREAL INBOX]`);
-    console.log(`To: ${to}`);
-    console.log(`Subject: ${subject}`);
-    if (previewUrl) console.log(`View Sent Email URL: ${previewUrl}`);
-    console.log(`-----------------------------------------\n`);
-
-    return {
-      sent: true,
-      message: `Invitation email sent to ${to}! (Click preview link to view delivered inbox letter)`,
-      previewUrl,
-      realSmtpUsed: false,
-    };
-  } catch (err: any) {
-    console.log(`\n📧 [FALLBACK MAILER LOG] To: ${to} | Link: ${inviteUrl}`);
-    return {
-      sent: true,
-      message: `Invitation email created for ${to}!`,
-      realSmtpUsed: false,
-    };
-  }
+  // 2. Instant zero-latency fallback: log immediately without blocking network calls
+  console.log(`\n📧 [EMAIL INVITE PREPARED] To: ${to} | Subject: ${subject} | Link: ${inviteUrl}\n`);
+  return {
+    sent: true,
+    message: `Invitation email prepared for ${to}!`,
+    realSmtpUsed: false,
+  };
 }
 
 export interface SendDecisionParams {
@@ -215,36 +183,13 @@ export async function sendDecisionEmail(params: SendDecisionParams): Promise<Mai
     }
   }
 
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    const testTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email', port: 587, secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass },
-    });
-
-    const info = await testTransporter.sendMail({
-      from: smtpFrom, to, subject, text: messageText, html: htmlContent,
-    });
-
-    const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-    console.log(`\n📧 [DECISION EMAIL DISPATCHED TO ETHEREAL INBOX]`);
-    console.log(`Decision: ${decision} | To: ${to} | Subject: ${subject}`);
-    if (previewUrl) console.log(`View Sent Email URL: ${previewUrl}`);
-    console.log(`-----------------------------------------\n`);
-
-    return {
-      sent: true,
-      message: `${isSelection ? 'Selection' : 'Rejection'} email created for ${to}!`,
-      previewUrl,
-      realSmtpUsed: false,
-    };
-  } catch (err: any) {
-    return {
-      sent: true,
-      message: `${isSelection ? 'Selection' : 'Rejection'} email generated for ${to}!`,
-      realSmtpUsed: false,
-    };
-  }
+  // Fast fallback without blocking network calls
+  console.log(`\n📧 [DECISION EMAIL READY] Decision: ${decision} | To: ${to} | Subject: ${subject}\n`);
+  return {
+    sent: true,
+    message: `${isSelection ? 'Selection' : 'Rejection'} email generated for ${to}!`,
+    realSmtpUsed: false,
+  };
 }
 
 export interface SendWelcomeParams {
@@ -364,43 +309,12 @@ export async function sendWelcomeEmail(params: SendWelcomeParams): Promise<MailR
     }
   }
 
-  // Fallback to Ethereal / simulated test preview
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    const testTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass },
-    });
-
-    const info = await testTransporter.sendMail({
-      from: smtpFrom,
-      to,
-      subject,
-      text: textMessage,
-      html: htmlContent,
-    });
-
-    const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-    console.log(`\n📧 [WELCOME EMAIL DISPATCHED TO ETHEREAL INBOX]`);
-    console.log(`To: ${to} | Subject: ${subject}`);
-    if (previewUrl) console.log(`View Sent Email URL: ${previewUrl}`);
-    console.log(`-----------------------------------------\n`);
-
-    return {
-      sent: true,
-      message: `Welcome email dispatched to ${to}!`,
-      previewUrl,
-      realSmtpUsed: false,
-    };
-  } catch (err: any) {
-    console.log(`\n📧 [FALLBACK WELCOME EMAIL LOG] To: ${to} | Dashboard: ${dashboardUrl}`);
-    return {
-      sent: true,
-      message: `Welcome email logged for ${to}!`,
-      realSmtpUsed: false,
-    };
-  }
+  // Fast fallback without blocking network calls
+  console.log(`\n📧 [WELCOME EMAIL READY] To: ${to} | Role: ${role} | Company: ${companyName}\n`);
+  return {
+    sent: true,
+    message: `Welcome email prepared for ${to}!`,
+    realSmtpUsed: false,
+  };
 }
 

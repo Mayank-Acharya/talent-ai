@@ -138,7 +138,7 @@ router.post('/submit-answer/:token', upload.single('video'), async (req, res) =>
     }
 
     // Create or update answer
-    const videoPath = videoFile ? videoFile.path : null;
+    const videoPath = videoFile ? videoFile.path.replace(/\\/g, '/') : null;
 
     // Call AI Evaluation
     const promptText = answerText || (videoFile ? 'Simulated video transcription: Candidates explained the concept of OOP and APIs.' : '');
@@ -307,6 +307,59 @@ router.post('/complete/:token', async (req, res) => {
     return res.json({ success: true, session: updated });
   } catch (error) {
     console.error('Complete session error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 6. Upload Full Session Video Recording
+router.post('/upload-video/:token', upload.single('video'), async (req, res) => {
+  const { token } = req.params;
+  const videoFile = req.file;
+
+  if (!videoFile) {
+    return res.status(400).json({ error: 'Video file is required' });
+  }
+
+  const normalizedPath = videoFile.path.replace(/\\/g, '/');
+
+  try {
+    const session = await prisma.interviewSession.findUnique({
+      where: { token },
+      include: {
+        answers: true,
+        interview: { include: { questions: true } },
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Attach videoPath to all answers of this session that don't have one
+    if (session.answers.length > 0) {
+      await prisma.answer.updateMany({
+        where: { sessionId: session.id, videoPath: null },
+        data: { videoPath: normalizedPath },
+      });
+      // Also ensure the primary/first answer has it
+      await prisma.answer.update({
+        where: { id: session.answers[0].id },
+        data: { videoPath: normalizedPath },
+      });
+    } else if (session.interview?.questions?.length > 0) {
+      await prisma.answer.create({
+        data: {
+          sessionId: session.id,
+          questionId: session.interview.questions[0].id,
+          videoPath: normalizedPath,
+          answerText: 'Full continuous session video recording.',
+        },
+      });
+    }
+
+    return res.json({ success: true, videoPath: normalizedPath });
+  } catch (error) {
+    console.error('Upload session video error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

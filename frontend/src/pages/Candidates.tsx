@@ -1564,6 +1564,47 @@ export default function Candidates({ token, user }: CandidatesProps) {
                               </div>
                             )}
 
+                            {/* Continuous Proctoring Video Recording Provided to Company */}
+                            {(() => {
+                              const sessionVideo = sess.answers?.find((a: any) => a.videoPath)?.videoPath;
+                              if (!sessionVideo) return null;
+                              const sessionVideoUrl = sessionVideo.startsWith('http') ? sessionVideo : `/${sessionVideo.replace(/\\/g, '/')}`;
+                              return (
+                                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Video size={16} color="#ef4444" />
+                                      </div>
+                                      <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                                          Candidate Continuous Proctoring Video Recording
+                                        </h4>
+                                        <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                          Full session webcam &amp; audio feed recorded automatically throughout candidate's interview
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, background: 'rgba(16,185,129,0.1)', color: '#16a34a', border: '1px solid rgba(16,185,129,0.2)', fontSize: '0.7rem', fontWeight: 800 }}>
+                                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a' }} />
+                                      Verified Recording Available
+                                    </span>
+                                  </div>
+                                  <video
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    src={sessionVideoUrl}
+                                    style={{ width: '100%', maxHeight: 360, borderRadius: 10, background: '#000', objectFit: 'contain' }}
+                                  >
+                                    <source src={sessionVideoUrl} type="video/webm" />
+                                    <source src={sessionVideoUrl} type="video/mp4" />
+                                    Your browser does not support HTML5 video playback.
+                                  </video>
+                                </div>
+                              );
+                            })()}
+
                             {/* Answers */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                               {sess.answers?.map((ans: any, idx: number) => {

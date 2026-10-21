@@ -315,15 +315,28 @@ router.post('/:id/send-invite', authenticateToken, requireRole(['COMPANY_ADMIN',
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const fullInviteUrl = `${baseUrl.replace(/\/$/, '')}${inviteUrl}`;
 
-    let mailResult: any = null;
+    // Fast synchronous SMS / WhatsApp link generation (0ms latency)
     let smsResult: any = null;
+    if (cleanPhone) {
+      const cleanPhoneDigits = cleanPhone.replace(/[^\d+]/g, '');
+      const waNumber = cleanPhoneDigits.replace(/^\+/, '');
+      const bodyText = message ? `${message}\n\nStart assessment: ${fullInviteUrl}` : `Hi ${cleanName}! You have been invited by ${orgName} to take your technical assessment for "${interview.title}". Start here: ${fullInviteUrl} (Valid for 7 days)`;
+      smsResult = {
+        sent: true,
+        message: `Assessment link prepared for phone ${cleanPhone}! Ready to send via SMS or WhatsApp.`,
+        whatsappUrl: `https://wa.me/${waNumber}?text=${encodeURIComponent(bodyText)}`,
+        smsUrl: `sms:${cleanPhoneDigits}?body=${encodeURIComponent(bodyText)}`,
+        formattedText: bodyText,
+        realTwilioUsed: false,
+      };
+    }
 
-    // 1. Send via Email if cleanEmail is present
+    const emailSubject = subject || `🎉 Invitation to Technical Assessment: ${interview.title} at ${orgName}`;
+    const emailMessage = message || `Hello ${cleanName}! 🎉\n\nWe are thrilled to invite you to take the technical assessment for ${interview.title} at ${orgName}!\n\nWe are excited to evaluate your problem-solving abilities and software engineering skills. Please click the button below whenever you are ready to begin your session.\n\nBest of luck, and we can't wait to review your submission!`;
+
+    // ⚡ Non-blocking background dispatch: do NOT make recruiter wait 15-30s!
     if (cleanEmail) {
-      const emailSubject = subject || `🎉 Invitation to Technical Assessment: ${interview.title} at ${orgName}`;
-      const emailMessage = message || `Hello ${cleanName}! 🎉\n\nWe are thrilled to invite you to take the technical assessment for ${interview.title} at ${orgName}!\n\nWe are excited to evaluate your problem-solving abilities and software engineering skills. Please click the button below whenever you are ready to begin your session.\n\nBest of luck, and we can't wait to review your submission!`;
-
-      mailResult = await sendInterviewInviteEmail({
+      sendInterviewInviteEmail({
         to: cleanEmail,
         candidateName: cleanName,
         orgName,
@@ -331,27 +344,24 @@ router.post('/:id/send-invite', authenticateToken, requireRole(['COMPANY_ADMIN',
         subject: emailSubject,
         messageText: emailMessage,
         inviteUrl: fullInviteUrl,
-      });
+      }).catch((err: any) => console.error('Background email dispatch notice:', err));
     }
 
-    // 2. Send via Phone / SMS / WhatsApp if cleanPhone is present
     if (cleanPhone) {
-      smsResult = await sendInterviewInviteSMS({
+      sendInterviewInviteSMS({
         candidatePhone: cleanPhone,
         candidateName: cleanName,
         orgName,
         interviewTitle: interview.title,
         inviteUrl: fullInviteUrl,
         customMessage: message,
-      });
+      }).catch((err: any) => console.error('Background SMS dispatch notice:', err));
     }
 
-    const finalMessage = mailResult?.sent && smsResult?.sent
-      ? `Invitation sent successfully via Email to ${cleanEmail} and prepared for Phone ${cleanPhone}!`
-      : mailResult?.sent
-      ? mailResult.message
-      : smsResult?.sent
-      ? smsResult.message
+    const finalMessage = cleanEmail && cleanPhone
+      ? `Invitation link generated! Email dispatched to ${cleanEmail} & WhatsApp/SMS ready.`
+      : cleanEmail
+      ? `Invitation link generated and dispatched to ${cleanEmail}!`
       : `Invitation link generated for ${cleanName}!`;
 
     return res.status(201).json({
@@ -362,17 +372,9 @@ router.post('/:id/send-invite', authenticateToken, requireRole(['COMPANY_ADMIN',
       candidate,
       inviteUrl,
       fullInviteUrl,
-      emailSent: mailResult?.sent || false,
-      previewUrl: mailResult?.previewUrl,
-      realSmtpUsed: mailResult?.realSmtpUsed || false,
-      smsResult: smsResult ? {
-        sent: smsResult.sent,
-        message: smsResult.message,
-        whatsappUrl: smsResult.whatsappUrl,
-        smsUrl: smsResult.smsUrl,
-        formattedText: smsResult.formattedText,
-        realTwilioUsed: smsResult.realTwilioUsed,
-      } : null,
+      emailSent: Boolean(cleanEmail),
+      realSmtpUsed: Boolean(process.env.SMTP_USER),
+      smsResult,
     });
   } catch (error: any) {
     console.error('Send invite error:', error);

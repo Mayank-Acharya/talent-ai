@@ -96,11 +96,13 @@ export default function Session({ token: propToken }: SessionProps) {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const proctorVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Recording
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  // Automated Continuous Proctoring Video Recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [videoUploaded, setVideoUploaded] = useState(false);
 
   // Navigation & Multi-question Answers State
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -110,12 +112,8 @@ export default function Session({ token: propToken }: SessionProps) {
   const [codeContent, setCodeContent] = useState('');
   const [fetchedDetail, setFetchedDetail] = useState<any>(null);
 
-  // Code runner & Editor
+  // Code Space & Editor
   const [codeLanguage, setCodeLanguage] = useState('cpp');
-  const [bottomTab, setBottomTab] = useState<'TESTCASE' | 'TEST_RESULT'>('TESTCASE');
-  const [runResult, setRunResult] = useState<any>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [activeTestCase, setActiveTestCase] = useState(0);
   const editorRef = useRef<any>(null);
 
   // Timer
@@ -128,6 +126,7 @@ export default function Session({ token: propToken }: SessionProps) {
 
   // Submit states
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
   const themeVars = {
     bg: '#ffffff', bgSecondary: '#f8fafc', bgPanel: '#f1f5f9',
@@ -198,7 +197,7 @@ export default function Session({ token: propToken }: SessionProps) {
     return () => document.removeEventListener('paste', handlePaste);
   }, [flow, token]);
 
-  // 3. Media
+  // 3. Media & Proctoring Setup
   const requestMedia = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -211,6 +210,9 @@ export default function Session({ token: propToken }: SessionProps) {
   };
 
   const stopMedia = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop(); } catch {}
+    }
     if (mediaStream) {
       mediaStream.getTracks().forEach(t => t.stop());
       setMediaStream(null);
@@ -218,13 +220,67 @@ export default function Session({ token: propToken }: SessionProps) {
     }
   };
 
-  // Start Interview
+  // Automated Continuous Proctoring Recording (Record video every time without asking)
+  const startContinuousRecording = (stream?: MediaStream) => {
+    const activeStream = stream || mediaStream;
+    if (!activeStream) return;
+    try {
+      recordedChunksRef.current = [];
+      let options: MediaRecorderOptions = {};
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+          options = { mimeType: 'video/webm;codecs=vp9' };
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          options = { mimeType: 'video/webm' };
+        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+          options = { mimeType: 'video/mp4' };
+        }
+      }
+      const recorder = new MediaRecorder(activeStream, options);
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data);
+        }
+      };
+      recorder.start(3000); // gather continuous chunks every 3 seconds
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (err) {
+      console.warn('Failed to start MediaRecorder:', err);
+    }
+  };
+
+  const uploadContinuousVideo = async () => {
+    if (recordedChunksRef.current.length === 0) return;
+    try {
+      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+      const fd = new FormData();
+      fd.append('video', blob, `session_${token}.webm`);
+      await fetch(`/api/sessions/upload-video/${token}`, {
+        method: 'POST',
+        body: fd,
+      });
+      setVideoUploaded(true);
+    } catch (err) {
+      console.error('Failed to upload proctoring video:', err);
+    }
+  };
+
+  // Attach webcam feed to proctoring thumbnail once sandbox loads
+  useEffect(() => {
+    if (flow === 'SANDBOX' && proctorVideoRef.current && mediaStream) {
+      proctorVideoRef.current.srcObject = mediaStream;
+    }
+  }, [flow, mediaStream]);
+
+  // Start Interview - Automated video recording begins immediately
   const handleStartInterview = async () => {
     try {
       const res = await fetch(`/api/sessions/start/${token}`, { method: 'POST' });
       if (!res.ok) throw new Error('Start failed');
       setFlow('SANDBOX');
       loadQuestion(0);
+      startContinuousRecording(mediaStream || undefined);
     } catch {
       alert('Failed to initialize session');
     }
@@ -238,9 +294,6 @@ export default function Session({ token: propToken }: SessionProps) {
     setCurrentIdx(idx);
     const q = questions[idx];
     setTimeLeft(q.timeLimitSeconds);
-    setRunResult(null);
-    setActiveTestCase(0);
-    setBottomTab('TESTCASE');
     setFetchedDetail(null);
 
     // Check if we have saved answers for this index
@@ -309,24 +362,10 @@ export default function Session({ token: propToken }: SessionProps) {
     setCodeContent(cleanSnippet);
   };
 
-  const startRecording = () => {
-    if (!mediaStream) return;
-    setRecordedChunks([]);
-    const recorder = new MediaRecorder(mediaStream);
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) setRecordedChunks(prev => [...prev, e.data]); };
-    recorder.start();
-    setMediaRecorder(recorder);
-    setIsRecording(true);
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) { mediaRecorder.stop(); setIsRecording(false); }
-  };
-
   // Save current question answer and proceed or finish
   const handleSaveCurrentAnswer = async (autoNext = false) => {
-    stopRecording();
     setSubmittingAnswer(true);
+    setSaveSuccessNotice(false);
     const q = session.interview.questions[currentIdx];
 
     // Save locally
@@ -344,13 +383,17 @@ export default function Session({ token: propToken }: SessionProps) {
     formData.append('answerText', answerText);
     formData.append('codeContent', codeContent);
     formData.append('codeLanguage', codeLanguage);
-    if (recordedChunks.length > 0) {
-      const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-      formData.append('video', videoBlob, `question_${q.id}.webm`);
+    if (recordedChunksRef.current.length > 0) {
+      const videoBlob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+      formData.append('video', videoBlob, `session_${token}_q_${q.id}.webm`);
     }
+
     try {
       await fetch(`/api/sessions/submit-answer/${token}`, { method: 'POST', body: formData });
-      setRecordedChunks([]);
+      setSaveSuccessNotice(true);
+      setTimeout(() => setSaveSuccessNotice(false), 2500);
+      // Continuous proctoring video sync
+      uploadContinuousVideo().catch(() => {});
       if (autoNext && currentIdx + 1 < session.interview.questions.length) {
         loadQuestion(currentIdx + 1);
       }
@@ -363,14 +406,25 @@ export default function Session({ token: propToken }: SessionProps) {
 
   // Final submit at the end
   const handleFinalSubmitInterview = async () => {
-    if (!confirm('Are you sure you want to finish and submit your interview? All answered questions will be evaluated.')) return;
+    if (!confirm('Are you sure you want to finish and submit your interview? All your answered solutions and proctoring video will be evaluated.')) return;
     
-    stopMedia();
     setSubmittingAnswer(true);
     try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.requestData(); } catch {}
+        try { mediaRecorderRef.current.stop(); } catch {}
+      }
+      setIsRecording(false);
+
       // Save current question first
       await handleSaveCurrentAnswer(false);
+
+      // Final video upload to company
+      await uploadContinuousVideo();
+
+      // Complete session
       await fetch(`/api/sessions/complete/${token}`, { method: 'POST' });
+      stopMedia();
       setFlow('COMPLETED');
     } catch {
       alert('Failed to submit interview session');
@@ -433,118 +487,6 @@ export default function Session({ token: propToken }: SessionProps) {
 
   const optimalTime = fetchedDetail?.optimalTime || currentQuestion?.optimalTime;
   const optimalSpace = fetchedDetail?.optimalSpace || currentQuestion?.optimalSpace;
-
-  /* Generate 5 LeetCode-style Test Cases */
-  const parsedCases = useMemo(() => {
-    if (!currentQuestion) return [];
-    
-    let inputs: string[] = [];
-    let expecteds: string[] = [];
-
-    if (qExamples.length > 0) {
-      const valid = qExamples.filter((ex: any) => ex && ex.input && !ex.input.includes("See LeetCode"));
-      if (valid.length > 0) {
-        inputs = valid.map((ex: any) => ex.input);
-        expecteds = valid.map((ex: any) => ex.output || 'Valid Output');
-      }
-    }
-
-    if (inputs.length === 0) {
-      const raw = fetchedDetail?.testCases || currentQuestion.testCases || fetchedDetail?.rawTestCases;
-      if (typeof raw === 'string' && raw.trim()) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            inputs = parsed.map((c: any) => c.input || c.in);
-            expecteds = parsed.map((c: any) => c.expected || c.output || c.out);
-          }
-        } catch {
-          inputs = raw.split('\n').map(l => l.trim()).filter(Boolean);
-        }
-      }
-    }
-
-    const isExplicitLC = currentQuestion?.isLeetcode || currentQuestion?.source === 'LEETCODE' ||
-      /function|class Solution|var solution/i.test((codeContent || currentQuestion?.codeSnippet || ''));
-
-    const isCP = !isExplicitLC && (
-      (currentQuestion?.source === 'CP' || currentQuestion?.source === 'CODEFORCES') ||
-      /cin\s*>>|#include|int main/i.test((fetchedDetail?.text || currentQuestion?.text || '') + (currentQuestion?.codeSnippet || ''))
-    );
-
-    const defaultCPInputs = [
-      inputs[0] || '4 4 1\n1 2 2 1\n2 4 5 1\n1 3 1 1\n3 4 3 1',
-      inputs[1] || '3 1 1\n1 2 10 1',
-      inputs[2] || '5 5 2\n1 2 3 1\n2 3 4 2\n1 4 2 1\n4 5 1 2\n3 5 5 1',
-      inputs[3] || '2 1 1\n1 2 5 1',
-      inputs[4] || '1 0 1',
-    ];
-
-    const defaultCPOutputs = [
-      expecteds[0] || '4',
-      expecteds[1] || '-1',
-      expecteds[2] || '5',
-      expecteds[3] || '5',
-      expecteds[4] || '0',
-    ];
-
-    const defaultLCInputs = [
-      inputs[0] || 'nums = [2,7,11,15], target = 9',
-      inputs[1] || 'nums = [3,2,4], target = 6',
-      inputs[2] || 'nums = [3,3], target = 6',
-      inputs[3] || 'nums = [1], target = 1',
-      inputs[4] || 'nums = [10,20,30], target = 50',
-    ];
-
-    const defaultLCOutputs = [
-      expecteds[0] || '[0,1]',
-      expecteds[1] || '[1,2]',
-      expecteds[2] || '[0,1]',
-      expecteds[3] || '[]',
-      expecteds[4] || '[1,2]',
-    ];
-
-    const finalInputs = isCP ? defaultCPInputs : defaultLCInputs;
-    const finalOutputs = isCP ? defaultCPOutputs : defaultLCOutputs;
-
-    const count = Math.max(5, inputs.length);
-    return Array.from({ length: count }, (_, i) => ({
-      id: i + 1,
-      name: `Case ${i + 1}`,
-      input: inputs[i] || finalInputs[i % finalInputs.length],
-      expected: expecteds[i] || finalOutputs[i % finalOutputs.length],
-    }));
-  }, [currentQuestion, qExamples, fetchedDetail]);
-
-  /* Run Code against all test cases */
-  const runCode = async () => {
-    if (!codeContent.trim()) return;
-    setIsRunning(true);
-    setBottomTab('TEST_RESULT');
-
-    const testCasesToRun = parsedCases.map(c => ({
-      input: c.input,
-      expected: c.expected
-    }));
-
-    try {
-      const res = await fetch('/api/judge/run-tests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: codeContent,
-          language: codeLanguage,
-          testCases: testCasesToRun
-        }),
-      });
-      const data = await res.json();
-      setRunResult(data);
-    } catch (err: any) {
-      setRunResult({ error: err.message });
-    } finally {
-      setIsRunning(false);
-    }
-  };
 
   const diffStyle = DIFF_STYLE[currentQuestion?.difficulty] || DIFF_STYLE.MEDIUM;
   const timePercent = currentQuestion ? (timeLeft / currentQuestion.timeLimitSeconds) * 100 : 100;
@@ -616,6 +558,14 @@ export default function Session({ token: propToken }: SessionProps) {
               })}
             </div>
 
+            {/* Live Continuous Proctoring Indicator */}
+            {cameraActive && isRecording && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 10px', borderRadius: 8, fontSize: '0.74rem', fontWeight: 800 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.2s infinite' }} />
+                REC • Live Proctoring
+              </div>
+            )}
+
             {tabSwitches > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 10px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700 }}>
                 <AlertTriangle style={{ width: 13, height: 13 }} /> Tab Switches: {tabSwitches}
@@ -675,7 +625,7 @@ export default function Session({ token: propToken }: SessionProps) {
                   { icon: '🚫', text: 'Do not switch browser tabs — all focus shifts are logged.' },
                   { icon: '⏱️', text: 'Each question has a countdown timer. Submission is automatic.' },
                   { icon: '💻', text: 'Coding questions feature a smart editor with auto-tabbing.' },
-                  { icon: '🎙️', text: 'Use the recording panel for verbal explanations.' },
+                  { icon: '📹', text: 'Automated continuous video and audio recording is active throughout the assessment.' },
                 ].map((r, i) => (
                   <li key={i} style={{ display: 'flex', gap: 10, fontSize: '0.8rem', color: themeVars.textSecondary }}>
                     <span>{r.icon}</span>
@@ -821,27 +771,6 @@ export default function Session({ token: propToken }: SessionProps) {
                 </div>
               )}
 
-              {/* Video recording panel */}
-              <div style={{ background: themeVars.bgSecondary, border: `1px solid ${themeVars.border}`, borderRadius: 12, padding: 14 }}>
-                <p style={{ fontSize: '0.72rem', fontWeight: 700, color: themeVars.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Video Response</p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {!isRecording ? (
-                    <button onClick={startRecording} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
-                      <Play style={{ width: 12, height: 12 }} /> Record Answer
-                    </button>
-                  ) : (
-                    <button onClick={stopRecording} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', animation: 'pulse 1.5s infinite' }}>
-                      <Square style={{ width: 12, height: 12 }} /> Stop Recording
-                    </button>
-                  )}
-                  {recordedChunks.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', fontWeight: 700, color: '#22c55e' }}>
-                      <CheckCircle style={{ width: 14, height: 14 }} /> Saved
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Written answer */}
               {currentQuestion.type !== 'CODING' && currentQuestion.type !== 'DSA' && (
                 <div>
@@ -920,18 +849,19 @@ export default function Session({ token: propToken }: SessionProps) {
                   <option value="rust">Rust</option>
                 </select>
 
-                {/* Run Code */}
+                {/* Save Solution Button */}
                 <button
-                  onClick={runCode}
-                  disabled={isRunning || !codeContent.trim()}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: isRunning ? themeVars.border : 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: isRunning ? 'not-allowed' : 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+                  onClick={() => handleSaveCurrentAnswer(false)}
+                  disabled={submittingAnswer || !codeContent.trim()}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: saveSuccessNotice ? '#16a34a' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: submittingAnswer ? 'not-allowed' : 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
                 >
-                  {isRunning ? '⟳ Running...' : '▶ Run Code'}
+                  {saveSuccessNotice ? <CheckCircle2 size={13} /> : <FileCode size={13} />}
+                  {saveSuccessNotice ? 'Solution Saved ✓' : submittingAnswer ? 'Saving...' : 'Save Solution'}
                 </button>
               </div>
             </div>
 
-            {/* Monaco Code Editor */}
+            {/* Monaco Code Editor (Full Remaining Height) */}
             <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
               <Editor
                 height="100%"
@@ -963,163 +893,50 @@ export default function Session({ token: propToken }: SessionProps) {
                 }}
               />
             </div>
-
-            {/* LeetCode-style Bottom Panel (Testcase & Test Result) */}
-            <div style={{ height: '240px', borderTop: `1px solid ${themeVars.border}`, display: 'flex', flexDirection: 'column', background: themeVars.bgSecondary }}>
-
-              {/* Main Panel Header Tabs: Testcase vs Test Result */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${themeVars.border}`, background: themeVars.bgPanel, padding: '0 12px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <button
-                    onClick={() => setBottomTab('TESTCASE')}
-                    style={{ padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, background: 'none', border: 'none', borderBottom: bottomTab === 'TESTCASE' ? '2px solid #2563eb' : '2px solid transparent', color: bottomTab === 'TESTCASE' ? '#2563eb' : themeVars.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <FileCode size={13} /> Testcase
-                  </button>
-                  <button
-                    onClick={() => setBottomTab('TEST_RESULT')}
-                    style={{ padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, background: 'none', border: 'none', borderBottom: bottomTab === 'TEST_RESULT' ? '2px solid #2563eb' : '2px solid transparent', color: bottomTab === 'TEST_RESULT' ? '#2563eb' : themeVars.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <Terminal size={13} /> Test Result
-                  </button>
-                </div>
-
-                {runResult && bottomTab === 'TEST_RESULT' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{
-                      fontSize: '0.75rem', fontWeight: 900, padding: '2px 8px', borderRadius: 6,
-                      color: runResult.allPassed || runResult.passed === runResult.total ? '#16a34a' : '#dc2626',
-                      background: runResult.allPassed || runResult.passed === runResult.total ? 'rgba(22,163,74,0.1)' : 'rgba(220,38,38,0.1)',
-                      border: `1px solid ${runResult.allPassed || runResult.passed === runResult.total ? 'rgba(22,163,74,0.3)' : 'rgba(220,38,38,0.3)'}`
-                    }}>
-                      {runResult.allPassed || runResult.passed === runResult.total ? '✓ Accepted' : '✗ Wrong Answer'}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: themeVars.textMuted, fontFamily: 'monospace' }}>
-                      Runtime: {runResult.executionTimeMs || 45} ms
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* ── TAB 1: TESTCASE ── */}
-              {bottomTab === 'TESTCASE' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  {/* Case 1 to Case 5 sub-tabs */}
-                  <div style={{ display: 'flex', gap: 4, padding: '8px 12px', borderBottom: `1px solid ${themeVars.border}`, flexShrink: 0, overflowX: 'auto' }}>
-                    {parsedCases.map((c, i) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setActiveTestCase(i)}
-                        style={{
-                          padding: '4px 12px', borderRadius: 6, fontSize: '0.74rem', fontWeight: 700,
-                          border: activeTestCase === i ? '1px solid #2563eb' : `1px solid ${themeVars.border}`,
-                          background: activeTestCase === i ? 'rgba(37,99,235,0.1)' : themeVars.bgSecondary,
-                          color: activeTestCase === i ? '#2563eb' : themeVars.textMuted,
-                          cursor: 'pointer', transition: 'all 0.15s'
-                        }}
-                      >
-                        Case {i + 1}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Input & Expected Output Box */}
-                  <div style={{ flex: 1, padding: 12, overflowY: 'auto', display: 'flex', gap: 12 }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <label style={{ fontSize: '0.68rem', fontWeight: 800, color: themeVars.textMuted, textTransform: 'uppercase' }}>Input</label>
-                      <textarea
-                        value={parsedCases[activeTestCase]?.input || ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          parsedCases[activeTestCase].input = val;
-                        }}
-                        rows={3}
-                        style={{ width: '100%', flex: 1, background: themeVars.bgPanel, border: `1px solid ${themeVars.border}`, borderRadius: 8, padding: '8px 10px', fontSize: '0.78rem', fontFamily: 'monospace', color: themeVars.text, resize: 'none', outline: 'none', boxSizing: 'border-box' }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <label style={{ fontSize: '0.68rem', fontWeight: 800, color: themeVars.textMuted, textTransform: 'uppercase' }}>Expected Output</label>
-                      <div style={{ flex: 1, background: themeVars.bgPanel, border: `1px solid ${themeVars.border}`, borderRadius: 8, padding: '8px 10px', fontSize: '0.78rem', fontFamily: 'monospace', color: '#16a34a', overflowY: 'auto' }}>
-                        {parsedCases[activeTestCase]?.expected || 'Expected result'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── TAB 2: TEST RESULT ── */}
-              {bottomTab === 'TEST_RESULT' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  {isRunning ? (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: themeVars.textMuted }}>
-                      <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
-                      <p style={{ fontSize: '0.8rem', fontWeight: 700, margin: 0 }}>Executing 5 test cases...</p>
-                    </div>
-                  ) : !runResult ? (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: themeVars.textMuted, fontSize: '0.8rem' }}>
-                      Click <strong>▶ Run Code</strong> to execute test cases.
-                    </div>
-                  ) : (
-                    <>
-                      {/* Case 1 ✓, Case 2 ✓, Case 3 ✓, Case 4 ✓, Case 5 ✓ */}
-                      <div style={{ display: 'flex', gap: 4, padding: '8px 12px', borderBottom: `1px solid ${themeVars.border}`, flexShrink: 0, overflowX: 'auto' }}>
-                        {parsedCases.map((c, i) => {
-                          const resItem = runResult.results?.[i];
-                          const passed = resItem ? resItem.passed : (runResult.passed || runResult.status?.id === 3);
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => setActiveTestCase(i)}
-                              style={{
-                                padding: '4px 10px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 800,
-                                border: activeTestCase === i ? `1px solid ${passed ? '#16a34a' : '#dc2626'}` : `1px solid ${themeVars.border}`,
-                                background: activeTestCase === i ? (passed ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)') : themeVars.bgSecondary,
-                                color: passed ? '#16a34a' : '#dc2626',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
-                              }}
-                            >
-                              {passed ? <Check size={11} /> : <X size={11} />} Case {i + 1}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Details box for active case */}
-                      <div style={{ flex: 1, padding: 12, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                          <div>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: themeVars.textMuted, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Input</span>
-                            <div style={{ background: themeVars.bgPanel, border: `1px solid ${themeVars.border}`, borderRadius: 6, padding: '6px 8px', fontSize: '0.75rem', fontFamily: 'monospace', color: themeVars.text }}>
-                              {parsedCases[activeTestCase]?.input || 'N/A'}
-                            </div>
-                          </div>
-                          <div>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: themeVars.textMuted, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Output</span>
-                            <div style={{ background: themeVars.bgPanel, border: `1px solid ${themeVars.border}`, borderRadius: 6, padding: '6px 8px', fontSize: '0.75rem', fontFamily: 'monospace', color: '#2563eb' }}>
-                              {runResult.results?.[activeTestCase]?.actual || runResult.stdout || 'N/A'}
-                            </div>
-                          </div>
-                          <div>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: themeVars.textMuted, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Expected</span>
-                            <div style={{ background: themeVars.bgPanel, border: `1px solid ${themeVars.border}`, borderRadius: 6, padding: '6px 8px', fontSize: '0.75rem', fontFamily: 'monospace', color: '#16a34a' }}>
-                              {parsedCases[activeTestCase]?.expected || 'N/A'}
-                            </div>
-                          </div>
-                        </div>
-
-                        {runResult.compile_output && (
-                          <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, padding: '8px', color: '#ef4444', fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                            {runResult.compile_output}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </main>
+      )}
+
+      {/* ── Floating Live Proctoring Webcam Thumbnail (Recorded Throughout Session) ── */}
+      {flow === 'SANDBOX' && cameraActive && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: 1000,
+          width: 168,
+          borderRadius: 14,
+          overflow: 'hidden',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          border: '2px solid rgba(239,68,68,0.7)',
+          background: '#000',
+        }}>
+          <video
+            ref={proctorVideoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: '100%', height: 105, objectFit: 'cover', display: 'block' }}
+          />
+          <div style={{
+            position: 'absolute',
+            top: 6,
+            left: 8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            padding: '2px 7px',
+            borderRadius: 6,
+            color: '#fff',
+            fontSize: '0.62rem',
+            fontWeight: 800,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.2s infinite' }} />
+            REC • Live
+          </div>
+        </div>
       )}
 
       {/* ── COMPLETED ── */}
