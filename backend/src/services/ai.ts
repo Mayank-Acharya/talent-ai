@@ -747,19 +747,21 @@ function extractResumeSections(rawText: string) {
   const sectionIndices: Array<{ name: string; lineIndex: number }> = [];
 
   const SECTION_PATTERNS: Record<string, RegExp> = {
-    experience: /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|career\s+summary|work\s+history)\b/i,
-    education: /^(?:education|academic\s+background|academic\s+credentials|qualifications|academic\s+qualifications)\b/i,
-    skills: /^(?:technical\s+skills|skills\s*(?:&|and)?\s*abilities|core\s+competencies|skills\s+summary|skills)\b/i,
-    projects: /^(?:projects|technical\s+projects|academic\s+projects|key\s+projects|personal\s+projects)\b/i,
-    certifications: /^(?:certifications|certificates|licenses|honors\s*(?:&|and)?\s*awards|achievements)\b/i,
-    summary: /^(?:professional\s+summary|profile\s+summary|summary|about\s+me|career\s+objective|objective)\b/i,
+    experience: /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|career\s+history|work\s+history|internships?|internship\s+experience)\b/i,
+    education: /^(?:education|academic\s+background|academic\s+credentials|academic\s+qualifications|academics|qualifications|education\s*(?:&|and)\s*training)\b/i,
+    skills: /^(?:technical\s+skills|skills\s*(?:&|and)?\s*(?:abilities|tools|competencies|proficiencies|technologies)?|skills\s+summary|core\s+competencies|areas\s+of\s+expertise|programming\s+languages|technologies|tools\s*&\s*technologies|technical\s+expertise|skills)\b/i,
+    projects: /^(?:projects|technical\s+projects|academic\s+projects|personal\s+projects|key\s+projects|selected\s+projects|notable\s+projects|project\s+work|open\s+source(?:\s+contributions)?|portfolio|applications)\b/i,
+    certifications: /^(?:certifications?|certificates?|licenses|honors\s*(?:&|and)?\s*awards|achievements|awards\s*&\s*recognitions?)\b/i,
+    summary: /^(?:professional\s+summary|executive\s+summary|profile\s+summary|summary|profile|about\s+me|career\s+objective|objective)\b/i,
   };
 
   lines.forEach((line, idx) => {
-    // Only check reasonably short lines as section headers (allow up to 70 chars)
-    if (line.length > 70) return;
+    if (line.length > 75) return;
+    const cleanHeader = line.replace(/^[#•*·\-\d.)▪▫>—|/:\s]+/, '').replace(/[:\s—\-]+$/, '').trim();
+    if (!cleanHeader || cleanHeader.length < 3) return;
+
     for (const [secName, regex] of Object.entries(SECTION_PATTERNS)) {
-      if (regex.test(line)) {
+      if (regex.test(cleanHeader)) {
         sectionIndices.push({ name: secName, lineIndex: idx });
         break;
       }
@@ -1100,19 +1102,20 @@ function parseEducation(educationLines: string[], allLines: string[]): { educati
  * Detects project headers via: title-case pattern, pipe separators, non-bullet start,
  * or lines that look like links/repo names. Handles names up to 100 chars.
  */
-function parseProjects(projectLines: string[]): ProjectItem[] {
+function parseProjects(projectLines: string[], allLines: string[] = []): ProjectItem[] {
+  const targetLines = (projectLines && projectLines.length > 0) ? projectLines : allLines;
   const projects: ProjectItem[] = [];
   let current: ProjectItem | null = null;
 
-  // Common tech keywords to extract from descriptions
+  // Comprehensive modern tech keywords for project stack extraction
   const TECH_KEYWORDS = [
-    'react', 'vue', 'angular', 'next.js', 'nuxt', 'svelte', 'typescript', 'javascript',
-    'node.js', 'express', 'fastapi', 'flask', 'django', 'spring', 'laravel', 'rails',
-    'python', 'java', 'go', 'rust', 'c++', 'c#', 'kotlin', 'swift', 'dart', 'flutter',
-    'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'cassandra', 'sqlite',
-    'aws', 'gcp', 'azure', 'docker', 'kubernetes', 'terraform', 'jenkins', 'github actions',
-    'graphql', 'rest', 'grpc', 'websocket', 'socket.io', 'tailwind', 'bootstrap', 'sass',
-    'tensorflow', 'pytorch', 'scikit-learn', 'pandas', 'numpy', 'opencv', 'langchain',
+    'react', 'react.js', 'vue', 'vue.js', 'angular', 'next.js', 'nextjs', 'nuxt', 'svelte', 'typescript', 'javascript',
+    'node.js', 'nodejs', 'express', 'express.js', 'fastapi', 'flask', 'django', 'spring boot', 'spring', 'laravel', 'rails',
+    'python', 'java', 'go', 'golang', 'rust', 'c++', 'c#', 'kotlin', 'swift', 'dart', 'flutter', 'react native',
+    'postgresql', 'postgres', 'mysql', 'mongodb', 'mongo', 'redis', 'elasticsearch', 'cassandra', 'sqlite',
+    'aws', 'gcp', 'azure', 'docker', 'kubernetes', 'k8s', 'terraform', 'jenkins', 'github actions',
+    'graphql', 'rest', 'rest api', 'grpc', 'websocket', 'socket.io', 'tailwind', 'tailwind css', 'bootstrap', 'sass',
+    'tensorflow', 'pytorch', 'scikit-learn', 'pandas', 'numpy', 'opencv', 'langchain', 'hugging face', 'llm', 'llms',
     'firebase', 'supabase', 'prisma', 'sequelize', 'typeorm', 'stripe', 'twilio',
     'microservices', 'kafka', 'rabbitmq', 'nginx', 'linux', 'bash', 'ci/cd',
     'html', 'css', 'webpack', 'vite', 'jest', 'playwright', 'cypress', 'selenium',
@@ -1120,92 +1123,89 @@ function parseProjects(projectLines: string[]): ProjectItem[] {
 
   function extractTech(text: string): string[] {
     const lower = text.toLowerCase();
-    return TECH_KEYWORDS.filter(kw => {
+    const found: string[] = [];
+    for (const kw of TECH_KEYWORDS) {
       const esc = kw.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      return new RegExp(`\\b${esc}\\b`, 'i').test(lower);
-    });
+      if (new RegExp(`(?:^|\\W)${esc}(?:$|\\W)`, 'i').test(lower)) {
+        found.push(kw.replace('.js', '').replace(/\b\w/g, c => c.toUpperCase()));
+      }
+    }
+    return Array.from(new Set(found));
   }
 
-  function isProjectTitle(line: string): boolean {
-    if (!line || line.length === 0) return false;
-    if (line.length > 100) return false;
+  function isProjectTitle(rawLine: string): boolean {
+    if (!rawLine) return false;
+    const clean = rawLine.replace(/^[•*·\-–—►▸▶→▪▫#\d.)]+\s*/, '').trim();
+    if (!clean || clean.length < 3 || clean.length > 100) return false;
 
-    // Lines starting with typical bullet/list chars are NOT titles
-    if (/^[•*·\-–—►▸▶→]/.test(line)) return false;
-    // Lines starting with lowercase are descriptions/bullets
-    if (/^[a-z]/.test(line)) return false;
-    // Lines that are just numbers or dates
-    if (/^\d{4}[-–]\d{4}$/.test(line)) return false;
-    // Lines starting with common description starters
-    if (/^(?:developed|built|created|designed|implemented|used|integrated|deployed|optimized|reduced|improved|achieved|led|contributed|maintained)/i.test(line)) return false;
+    // Reject description sentences starting with action verbs
+    if (/^(?:developed|built|created|designed|implemented|used|integrated|deployed|optimized|reduced|improved|achieved|led|contributed|maintained|assisted|worked|engineered|architected)\b/i.test(clean)) {
+      return false;
+    }
 
-    // POSITIVE signals — this looks like a project title:
-    // 1. Contains pipe separator (common: "Project Name | Tech Stack | Year")
-    if (line.includes('|')) return true;
-    // 2. Contains colon after a short phrase (common: "ProjectName: description")
-    if (/^[A-Z][^:]{2,25}:/.test(line)) return true;
-    // 3. Title Case or ALL CAPS (most project names are Title Case)
-    const words = line.replace(/[|:()[\]]/g, '').split(/\s+/).filter(Boolean);
+    // POSITIVE indicators:
+    // 1. Contains pipe separator: "Project Name | React, Node.js | Jan 2024"
+    if (clean.includes('|')) return true;
+    // 2. Contains colon after a concise title: "Project Name: ..." or "App Name: ..."
+    if (/^[^:]{2,35}:\s*/.test(clean)) return true;
+    // 3. Contains parenthesis with technologies: "Smart Chat App (React, WebSockets)"
+    if (/^[A-Za-z0-9\s-]{2,45}\s*\([^)]+\)/.test(clean)) return true;
+    // 4. Short title-cased heading without full sentence punctuation
+    const words = clean.replace(/[:()[\]—–-]/g, ' ').split(/\s+/).filter(Boolean);
     const titleCaseWords = words.filter(w => /^[A-Z]/.test(w));
-    if (words.length >= 1 && titleCaseWords.length >= Math.ceil(words.length * 0.6)) return true;
-    // 4. Looks like a repo/app name (PascalCase or hyphen-joined)
-    if (/^[A-Z][a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$/.test(line)) return true;
-    // 5. Short line (under 60 chars) that starts uppercase and contains common project words
-    if (line.length < 60 && /^[A-Z]/.test(line)) return true;
+    if (words.length >= 1 && words.length <= 8 && titleCaseWords.length >= Math.ceil(words.length * 0.5)) {
+      if (!/^https?:\/\//i.test(clean)) return true;
+    }
 
     return false;
   }
 
-  for (const rawLine of projectLines) {
+  for (const rawLine of targetLines) {
     const line = rawLine.trim();
     if (!line) continue;
 
     if (isProjectTitle(line)) {
-      // Save the previous project before starting a new one
-      if (current) {
-        // Final tech extraction pass on full description
+      if (current && (current.name || current.description)) {
         const descTech = extractTech(current.description);
         current.technologies = Array.from(new Set([...current.technologies, ...descTech]));
         projects.push(current);
       }
 
-      // Parse pipe-separated format: "Project Name | React, Node.js | 2024"
-      let projectName = line;
+      const cleanHeader = line.replace(/^[•*·\-–—►▸▶→▪▫#\d.)]+\s*/, '').trim();
+      let projectName = cleanHeader;
       let techFromTitle: string[] = [];
 
-      if (line.includes('|')) {
-        const parts = line.split('|').map(p => p.trim());
+      if (cleanHeader.includes('|')) {
+        const parts = cleanHeader.split('|').map(p => p.trim());
         projectName = parts[0];
-        // Remaining parts might be tech stack or year
         const techParts = parts.slice(1).join(' ');
         techFromTitle = extractTech(techParts);
-        // Also try to parse comma-separated tech names from the pipe parts
-        const commaTech = techParts.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 1 && t.length < 30);
-        techFromTitle = Array.from(new Set([...techFromTitle, ...commaTech.filter(t => TECH_KEYWORDS.includes(t))]));
-      } else if (/^([^:]{2,25}):\s*(.+)/.test(line)) {
-        const colonMatch = line.match(/^([^:]{2,25}):\s*(.+)/);
-        if (colonMatch) {
-          projectName = colonMatch[1].trim();
-          techFromTitle = extractTech(colonMatch[2]);
+      } else if (cleanHeader.includes(':')) {
+        const parts = cleanHeader.split(':');
+        projectName = parts[0].trim();
+        techFromTitle = extractTech(parts.slice(1).join(' '));
+      } else if (/\(([^)]+)\)/.test(cleanHeader)) {
+        const match = cleanHeader.match(/^([^(]+)\(([^)]+)\)/);
+        if (match) {
+          projectName = match[1].trim();
+          techFromTitle = extractTech(match[2]);
         }
       }
 
       current = {
-        name: projectName.replace(/^[•*·\-–#\d.)]+\s*/, '').trim(),
+        name: projectName.replace(/[:\s—\-]+$/, '').trim(),
         description: '',
         technologies: techFromTitle,
       };
     } else if (current) {
-      // Append to description
-      const descLine = line.replace(/^[•*·\-–►▸▶→\d.)]+\s*/, '').trim();
-      if (descLine) {
-        current.description += (current.description ? ' ' : '') + descLine;
+      const cleanDesc = line.replace(/^[•*·\-–—►▸▶→▪▫#\d.)]+\s*/, '').trim();
+      if (cleanDesc.length > 5) {
+        current.description += (current.description ? ' • ' : '') + cleanDesc;
       }
     }
   }
 
-  // Push the last project
-  if (current) {
+  if (current && (current.name || current.description)) {
     const descTech = extractTech(current.description);
     current.technologies = Array.from(new Set([...current.technologies, ...descTech]));
     projects.push(current);
@@ -1222,7 +1222,7 @@ export const parseResume = async (resumeText: string): Promise<AIParsedResumeRes
   const categorizedSkills = parseDetailedSkills(resumeText, sections.skills);
   const { experienceList, experienceString } = parseWorkExperience(sections.experience, lines);
   const { educationList, educationString } = parseEducation(sections.education, lines);
-  const projects = parseProjects(sections.projects);
+  const projects = parseProjects(sections.projects, lines);
 
   // Generate dynamic executive summary
   let summary = '';
@@ -1288,7 +1288,7 @@ export const scoreResume = async (
   ]));
 
   // Extract verbatim candidate skills
-  const { sections: scoreSections } = extractResumeSections(resumeText);
+  const { lines: scoreLines, sections: scoreSections } = extractResumeSections(resumeText);
   const parsedCandidateSkills = parseDetailedSkills(resumeText, scoreSections.skills);
   const candidateSkillsLower = new Set(parsedCandidateSkills.all.map(s => s.toLowerCase()));
 
@@ -1385,26 +1385,51 @@ export const scoreResume = async (
   const hasPhone = /(?:\+?\d{1,3}[-.\\s]?)?(?:\(?\d{3}\)?[-.\\s]?)?\d{3}[-.\\s]?\d{4}/.test(resumeText);
   const hasLinks = /github|linkedin|portfolio/i.test(resumeText);
 
-  const parsedProjects = parseProjects(scoreSections.projects);
+  const parsedProjects = parseProjects(scoreSections.projects, scoreLines);
   const projectCount = parsedProjects.length;
+
+  // Project Score (0 - 100) based on project depth and technology cohesion
+  let projectScore = 35;
+  if (projectCount >= 3) projectScore = 95;
+  else if (projectCount === 2) projectScore = 85;
+  else if (projectCount === 1) projectScore = 70;
+  else projectScore = 35;
+
+  const allProjectTech = new Set(parsedProjects.flatMap(p => p.technologies.map(t => t.toLowerCase())));
+  if (allProjectTech.size >= 4) projectScore = Math.min(98, projectScore + 5);
 
   let formattingScore = 40 + headerCheck.length * 8;
   if (hasEmail) formattingScore += 6;
   if (hasPhone) formattingScore += 6;
   if (hasLinks) formattingScore += 8;
-  if (projectCount >= 3) formattingScore += 10;
+  if (projectCount >= 2) formattingScore += 10;
   else if (projectCount >= 1) formattingScore += 5;
   formattingScore = Math.min(98, formattingScore);
 
-  // 8. Genuine ATS Composite Score Calculation
-  // Weighted: Skills 40%, Experience 25%, Impact 15%, Education 10%, Formatting 10%
-  const overallScore = Math.min(98, Math.max(15, Math.round(
-    skillsScore * 0.40 +
-    experienceScore * 0.25 +
-    impactScore * 0.15 +
-    educationScore * 0.10 +
-    formattingScore * 0.10
-  )));
+  // 8. Genuine Industry ATS Composite Score Calculation
+  const isFresherOrStudent = expYears <= 1;
+  let overallScore: number;
+  if (isFresherOrStudent) {
+    // For freshers & students: Skills (35%) & Projects (30%) drive the score
+    overallScore = Math.round(
+      skillsScore * 0.35 +
+      projectScore * 0.30 +
+      impactScore * 0.15 +
+      educationScore * 0.10 +
+      formattingScore * 0.10
+    );
+  } else {
+    // For industry experienced: Skills (30%), Experience (25%), Projects (15%), Impact (15%)
+    overallScore = Math.round(
+      skillsScore * 0.30 +
+      experienceScore * 0.25 +
+      projectScore * 0.15 +
+      impactScore * 0.15 +
+      educationScore * 0.08 +
+      formattingScore * 0.07
+    );
+  }
+  overallScore = Math.min(96, Math.max(25, overallScore));
 
   // 9. Strengths
   const strengths: string[] = [];
@@ -1487,10 +1512,10 @@ export const scoreResume = async (
     level,
     breakdown: {
       skills: skillsScore,
-      experience: experienceScore,
+      experience: isFresherOrStudent ? projectScore : experienceScore,
       education: educationScore,
       formatting: formattingScore,
-      keywords: Math.round(totalPct * 100),
+      keywords: Math.round(reqPct * 100),
       quantifiedImpact: impactScore,
     },
     targetRole: displayRole,

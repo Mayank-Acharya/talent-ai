@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import crypto from 'crypto';
 import fs from 'fs';
+import zlib from 'zlib';
 import { prisma } from '../services/db';
 import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth';
 import { parseResume, scoreResume } from '../services/ai';
@@ -128,44 +129,112 @@ router.post('/', authenticateToken, requireRole(['COMPANY_ADMIN', 'RECRUITER']),
   }
 });
 
+function cleanExtractedText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Rejoin words broken across linebreaks with hyphens: e.g. "devel-\noper" -> "developer"
+    .replace(/([a-zA-Z]{2,})-\n\s*([a-zA-Z]{2,})/g, '$1$2')
+    // Remove non-printable control characters except whitespace
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
+    // Normalize bullets
+    .replace(/[•*·▪▫►▸▶→–—]/g, '•')
+    // Normalize spaces
+    .replace(/[ \t]+/g, ' ')
+    // Collapse excess newlines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 async function extractTextFromFile(buffer: Buffer, filename: string): Promise<string> {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
 
-  // 1. PDF File Parsing via pdf-parse
+  // 1. PDF File Parsing
   if (ext === 'pdf') {
+    // Primary: pdf-parse (supports both v2 class and v1 function)
     try {
-      const pdfParse = require('pdf-parse');
-      const data = await pdfParse(buffer);
-      if (data && data.text && data.text.trim().length > 30) {
-        return data.text.trim();
+      const pdfModule = require('pdf-parse');
+      if (typeof pdfModule === 'function' && !pdfModule.PDFParse) {
+        const data = await pdfModule(buffer);
+        if (data && data.text && data.text.trim().length > 20) {
+          return cleanExtractedText(data.text);
+        }
+      } else {
+        const PDFClass = pdfModule.PDFParse || (typeof pdfModule === 'function' ? pdfModule : null);
+        if (PDFClass && typeof PDFClass === 'function') {
+          const parser = new PDFClass({ data: buffer });
+          const data = await parser.getText();
+          await parser.destroy().catch(() => {});
+          if (data && data.text && data.text.trim().length > 20) {
+            return cleanExtractedText(data.text);
+          }
+        }
       }
     } catch (pdfErr) {
-      console.warn('pdf-parse standard extraction failed, using fallback stream extractor:', pdfErr);
+      console.warn('pdf-parse primary extraction failed, trying deep stream extraction:', pdfErr);
     }
 
-    // Fallback: scan PDF streams for literals
-    const raw = buffer.toString('latin1');
-    const matches = raw.match(/\(([^()]{2,140})\)\s*T[jJ]/g) || [];
-    const extracted = matches.map(m => m.replace(/^\(/, '').replace(/\)\s*T[jJ]$/, '').trim()).filter(s => s.length > 2);
-    if (extracted.length > 5) {
-      return extracted.join(' ');
+    // Secondary Fallback: Scan PDF streams with FlateDecode decompression
+    try {
+      const raw = buffer.toString('binary');
+      let combinedStreamText = '';
+
+      const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
+      let match;
+      while ((match = streamRegex.exec(raw)) !== null) {
+        const streamData = Buffer.from(match[1], 'binary');
+        let decompressed: Buffer | null = null;
+        try {
+          decompressed = zlib.inflateSync(streamData);
+        } catch {
+          try {
+            decompressed = zlib.inflateRawSync(streamData);
+          } catch {}
+        }
+
+        const textToScan = decompressed ? decompressed.toString('utf8') : streamData.toString('latin1');
+        const btBlocks = textToScan.match(/BT[\s\S]*?ET/g) || [];
+        for (const block of btBlocks) {
+          const tjMatches = block.match(/\(([^()]*)\)\s*T[jJ]/g) || [];
+          for (const tj of tjMatches) {
+            const str = tj.replace(/^\(/, '').replace(/\)\s*T[jJ]$/, '').trim();
+            if (str) combinedStreamText += str + ' ';
+          }
+          const arrayMatches = block.match(/\[([^\]]*)\]\s*TJ/g) || [];
+          for (const arr of arrayMatches) {
+            const subStrs = arr.match(/\(([^()]*)\)/g) || [];
+            const joined = subStrs.map(s => s.slice(1, -1)).join('');
+            if (joined.trim()) combinedStreamText += joined.trim() + ' ';
+          }
+          combinedStreamText += '\n';
+        }
+      }
+
+      if (combinedStreamText.trim().length > 30) {
+        return cleanExtractedText(combinedStreamText);
+      }
+    } catch (streamErr) {
+      console.warn('PDF stream extraction fallback error:', streamErr);
     }
   }
 
-  // 2. DOCX parsing: look for Word XML text elements <w:t>...</w:t>
+  // 2. DOCX / DOC parsing: Word XML tags <w:t>...</w:t>
   if (ext === 'docx' || ext === 'doc') {
-    const rawStr = buffer.toString('utf8');
-    const wordTags = rawStr.match(/<w:t[^>]*>([^<]+)<\/w:t>/g) || [];
-    if (wordTags.length > 0) {
-      const docxText = wordTags.map(t => t.replace(/<[^>]+>/g, '')).join(' ');
-      if (docxText.trim().length > 20) return docxText.trim();
-    }
+    try {
+      const rawStr = buffer.toString('utf8');
+      const wordTags = rawStr.match(/<w:t[^>]*>([^<]+)<\/w:t>/g) || [];
+      if (wordTags.length > 0) {
+        const docxText = wordTags.map(t => t.replace(/<[^>]+>/g, '')).join(' ');
+        if (docxText.trim().length > 20) return cleanExtractedText(docxText);
+      }
+    } catch {}
   }
 
   // 3. Plain text / Markdown / Source text files
   const plainText = buffer.toString('utf8').replace(/[^\x20-\x7E\t\n\r]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   if (plainText.length > 20) {
-    return plainText;
+    return cleanExtractedText(plainText);
   }
 
   return filename.replace(/[-_.]/g, ' ');

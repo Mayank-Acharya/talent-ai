@@ -96,10 +96,18 @@ export default function App() {
     return now;
   };
 
+  const isPaid = user?.isPaid === true || 
+    company?.plan === 'STUDENT' || 
+    company?.plan === 'ORGANISATION' || 
+    company?.plan === 'GROWTH' || 
+    company?.plan === 'ENTERPRISE' || 
+    company?.plan === 'PRO' ||
+    localStorage.getItem(`talentai_paid_${user?.id || user?.email || 'default'}`) === 'true';
+
   const trialStartTime = user ? getTrialStartTime() : Date.now();
   const timeElapsed = Date.now() - trialStartTime;
   const timeRemaining = Math.max(0, trialDurationMs - timeElapsed);
-  const isTrialExpired = !isMasterOwner && (timeElapsed >= trialDurationMs);
+  const isTrialExpired = !isMasterOwner && !isPaid && (timeElapsed >= trialDurationMs);
 
   const formatRemaining = () => {
     if (isStudent) {
@@ -173,57 +181,6 @@ export default function App() {
         fontFamily: "'Inter', sans-serif",
       }}
     >
-      {/* ── Compact Floating Free Trial Box with Timer (Zero vertical layout intrusion) ── */}
-      {!isMasterOwner && !isTrialExpired && (
-        <div
-          className="fixed top-3 right-6 z-50 flex items-center gap-2.5 px-3.5 py-1.5 rounded-full shadow-xl border border-blue-400/40 backdrop-blur-md transition-all animate-fade-in-up"
-          style={{
-            background: 'rgba(30, 58, 138, 0.92)',
-            color: '#ffffff',
-          }}
-        >
-          <div className="flex items-center gap-1.5 font-bold text-xs text-white">
-            <span className="p-1 rounded-full bg-blue-500/30 shrink-0">
-              {isStudent ? <GraduationCap className="w-3.5 h-3.5 text-blue-200" /> : <Building2 className="w-3.5 h-3.5 text-blue-200" />}
-            </span>
-            <span className="text-blue-100">{isStudent ? '7-Day Trial:' : '2-Hr Trial:'}</span>
-            <span className="font-extrabold text-amber-300 font-mono tracking-wide ml-0.5">{formatRemaining()}</span>
-          </div>
-          <button
-            onClick={() => setActiveTab('billing')}
-            className="px-2.5 py-0.5 rounded-full bg-white text-blue-800 hover:bg-blue-50 font-black text-[10px] tracking-wide shadow-sm transition-all cursor-pointer flex items-center gap-1 shrink-0 ml-1"
-          >
-            <span>Upgrade</span>
-            <ArrowRight className="w-2.5 h-2.5" />
-          </button>
-        </div>
-      )}
-
-      {/* ── Master Owner Permanent VIP Banner (Mayank Kumar Acharya) ── */}
-      {isMasterOwner && (
-        <div className="force-white w-full px-4 py-2 bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white text-xs font-bold flex items-center justify-between shrink-0 border-b border-purple-500/30 z-50 shadow-sm" style={{ color: '#ffffff' }}>
-          <div className="flex items-center gap-2.5" style={{ color: '#ffffff' }}>
-            <Crown className="w-4 h-4 text-amber-400 shrink-0" />
-            <span style={{ color: '#ffffff' }}>
-              👑 <strong style={{ color: '#ffffff', fontWeight: 800 }}>Master Owner Lifetime Access:</strong> Unlimited permanent access active for Mayank Kumar Acharya. Zero trial limits apply.
-            </span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-[10px] uppercase font-black tracking-wider text-purple-200 bg-purple-500/30 px-2.5 py-0.5 rounded-full border border-purple-400/40" style={{ color: '#f3e8ff' }}>
-              Founder VIP
-            </span>
-            <button
-              onClick={handleLogout}
-              className="px-3 py-1 rounded-lg bg-red-600/90 hover:bg-red-500 text-white font-extrabold text-[11px] transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ml-1"
-              title="Sign out of TalentAI"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Log Out</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── Main App Layout ── */}
       <div className="flex flex-1 min-h-0 w-screen overflow-hidden">
         {/* Sidebar */}
@@ -235,6 +192,10 @@ export default function App() {
           onLogout={handleLogout}
           isDark={isDark}
           onToggleDark={() => setIsDark(d => !d)}
+          isPaid={isPaid}
+          isMasterOwner={isMasterOwner}
+          trialRemainingText={formatRemaining()}
+          onUpgradeClick={() => setActiveTab('billing')}
         />
 
         {/* Main Content Area */}

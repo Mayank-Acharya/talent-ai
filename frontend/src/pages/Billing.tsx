@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  CreditCard, 
   CheckCircle2, 
   AlertCircle, 
   QrCode, 
@@ -41,9 +40,7 @@ export default function Billing({ token, company, onCompanyUpdate, user }: Billi
   const [upiSuccess, setUpiSuccess] = useState('');
   const [upiError, setUpiError] = useState('');
 
-  // Simulated Razorpay Checkout Overlay
-  const [activeMockCheckout, setActiveMockCheckout] = useState<any>(null);
-  const [processingMockPayment, setProcessingMockPayment] = useState(false);
+
 
   const fetchSubscription = async () => {
     setLoading(true);
@@ -103,75 +100,17 @@ export default function Billing({ token, company, onCompanyUpdate, user }: Billi
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Payment verification failed');
-
       setUpiSuccess(`Payment verified! ${selectedPlan} subscription activated successfully.`);
       setUtrNumber('');
+      localStorage.setItem(`talentai_paid_${user?.id || user?.email || 'default'}`, 'true');
+      if (company && onCompanyUpdate) {
+        onCompanyUpdate({ ...company, plan: selectedPlan });
+      }
       fetchSubscription();
     } catch (err: any) {
       setUpiError(err.message || 'Payment verification failed. Please check your UTR.');
     } finally {
       setSubmittingUpi(false);
-    }
-  };
-
-  // Razorpay / NetBanking Checkout
-  const handleRazorpayCheckout = async () => {
-    setError('');
-    try {
-      const res = await fetch('/api/billing/create-razorpay-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ plan: selectedPlan }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      setActiveMockCheckout({
-        plan: data.plan,
-        sessionId: data.orderId,
-        isRazorpay: true,
-        amount: data.amount
-      });
-    } catch (err: any) {
-      setError(err.message || 'Payment checkout initiation failed');
-    }
-  };
-
-  const handleSimulateApprove = async () => {
-    if (!activeMockCheckout) return;
-    setProcessingMockPayment(true);
-
-    try {
-      const response = await fetch('/api/billing/verify-razorpay-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          plan: activeMockCheckout.plan,
-          razorpay_order_id: activeMockCheckout.sessionId,
-          razorpay_payment_id: `pay_${Math.random().toString(36).substring(2, 15)}`,
-          razorpay_signature: 'mock_sig_123'
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-
-      setActiveMockCheckout(null);
-      fetchSubscription();
-      alert(`Payment Verified! Subscription activated for ${activeMockCheckout.plan} tier.`);
-    } catch (err: any) {
-      alert(err.message || 'Payment confirmation failed');
-    } finally {
-      setProcessingMockPayment(false);
     }
   };
 
@@ -189,7 +128,7 @@ export default function Billing({ token, company, onCompanyUpdate, user }: Billi
           Subscription &amp; Payments
         </h1>
         <p className="text-xs text-[var(--text-secondary)] mt-1">
-          Select a tier and pay instantly via UPI QR scanner or NetBanking &amp; Cards.
+          Select a tier and scan the UPI QR code to activate your plan instantly.
         </p>
       </div>
 
@@ -260,7 +199,7 @@ export default function Billing({ token, company, onCompanyUpdate, user }: Billi
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-emerald-600" />
               <h2 className="text-sm font-extrabold text-[var(--text-primary)]">
-                Option 1: Scan &amp; Pay via UPI (Instant)
+                Scan &amp; Pay via UPI (Instant Activation)
               </h2>
             </div>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
@@ -342,54 +281,7 @@ export default function Billing({ token, company, onCompanyUpdate, user }: Billi
             </div>
           </div>
         </div>
-
-        {/* Method B: NetBanking & Cards (Razorpay) */}
-        <div className="pt-4 border-t border-[var(--border)] flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-blue-600" />
-            <div>
-              <p className="text-xs font-bold text-[var(--text-primary)]">Option 2: NetBanking &amp; Cards</p>
-              <p className="text-[11px] text-[var(--text-muted)]">Pay securely via Credit/Debit card or NetBanking</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleRazorpayCheckout}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <span>Pay ₹{planPrice} via NetBanking / Cards</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
       </div>
-
-      {/* Simulated Checkout Modal */}
-      {activeMockCheckout && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h4 className="text-base font-extrabold text-[var(--text-primary)]">NetBanking / Card Checkout</h4>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Confirm your ₹{planPrice} payment for {planName}.
-            </p>
-
-            <button
-              onClick={handleSimulateApprove}
-              disabled={processingMockPayment}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow transition-all cursor-pointer"
-            >
-              {processingMockPayment ? 'Authorizing...' : 'Approve Payment & Activate'}
-            </button>
-
-            <button
-              onClick={() => setActiveMockCheckout(null)}
-              className="w-full py-2 border border-[var(--border)] text-xs font-bold text-[var(--text-muted)] rounded-xl transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

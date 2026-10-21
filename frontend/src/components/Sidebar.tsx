@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Video, HelpCircle, Users, FileText,
   CreditCard, Settings, LogOut, Brain, ChevronLeft, ChevronRight,
-  Sparkles, Sun, Moon, Swords, Calendar, Crown,
+  Sparkles, Sun, Moon, Swords, Calendar, Crown, Clock, ArrowRight,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -13,6 +13,10 @@ interface SidebarProps {
   onLogout: () => void;
   isDark: boolean;
   onToggleDark: () => void;
+  isPaid?: boolean;
+  isMasterOwner?: boolean;
+  trialRemainingText?: string;
+  onUpgradeClick?: () => void;
 }
 
 const defaultMenuItems = [
@@ -25,7 +29,8 @@ const defaultMenuItems = [
 ];
 
 export default function Sidebar({
-  activeTab, onTabChange, user, company, onLogout, isDark, onToggleDark
+  activeTab, onTabChange, user, company, onLogout, isDark, onToggleDark,
+  isPaid = false, isMasterOwner = false, trialRemainingText = '', onUpgradeClick
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -278,6 +283,50 @@ export default function Sidebar({
           </div>
         )}
 
+        {/* Trial Timer in Sidebar (Disappears when paid or master owner) */}
+        {!collapsed && !isMasterOwner && !isPaid && trialRemainingText && (
+          <div style={{
+            padding: '10px 12px',
+            borderRadius: 12,
+            marginBottom: 8,
+            background: 'rgba(37,99,235,0.08)',
+            border: '1px solid rgba(37,99,235,0.22)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', fontWeight: 800, color: 'var(--brand)' }}>
+              <Clock style={{ width: 13, height: 13 }} />
+              <span>{user?.role === 'STUDENT' ? '7-Day Free Trial' : '2-Hr Free Trial'}</span>
+            </div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, fontFamily: 'monospace', color: 'var(--text-primary)', marginTop: 4 }}>
+              {trialRemainingText}
+            </div>
+            {onUpgradeClick && (
+              <button
+                onClick={onUpgradeClick}
+                style={{
+                  marginTop: 6,
+                  width: '100%',
+                  padding: '6px 0',
+                  borderRadius: 8,
+                  background: 'var(--brand)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span>Upgrade to PRO</span>
+                <ArrowRight style={{ width: 12, height: 12 }} />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* User row */}
         <div style={{
           display: 'flex',
@@ -299,11 +348,22 @@ export default function Sidebar({
             {initials}
           </div>
           {!collapsed && (() => {
-            const isMaster = user?.isMaster === true || 
+            const isMaster = isMasterOwner || user?.isMaster === true || 
               user?.role === 'SUPER_ADMIN' || 
               user?.email === 'mayank074518@gmail.com' || 
               user?.email === 'admin@talentai.com';
             const isStudent = user?.role === 'STUDENT';
+            const badgeLabel = isMaster 
+              ? '👑 Master VIP' 
+              : isPaid 
+              ? (isStudent ? '🎓 Student PRO' : '🏢 Org PRO')
+              : (isStudent ? '🎓 Student Trial' : '🏢 Org Trial');
+            const badgeColor = isMaster 
+              ? '#a855f7' 
+              : isPaid 
+              ? '#10b981' 
+              : (isStudent ? '#3b82f6' : '#8b5cf6');
+
             return (
               <>
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -315,10 +375,10 @@ export default function Sidebar({
                   </p>
                   <p style={{
                     fontSize: '0.65rem', margin: 0,
-                    color: isMaster ? '#a855f7' : isStudent ? '#3b82f6' : '#8b5cf6',
+                    color: badgeColor,
                     fontWeight: 800
                   }}>
-                    {isMaster ? '👑 Master VIP' : isStudent ? '🎓 Student Trial' : '🏢 Org Trial'}
+                    {badgeLabel}
                   </p>
                 </div>
                 <button

@@ -839,9 +839,20 @@ export default function ResumeParser({ token }: ResumeParserProps) {
                   <div className="space-y-4">
                     {parsedResult.projects && parsedResult.projects.length > 0 ? (
                       parsedResult.projects.map((proj: any, pIdx: number) => (
-                        <div key={pIdx} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl p-5 space-y-2">
-                          <h4 className="text-sm font-extrabold text-[var(--text-primary)]">{proj.name}</h4>
-                          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{proj.description}</p>
+                        <div key={pIdx} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl p-5 space-y-3">
+                          <div className="flex justify-between items-start flex-wrap gap-2">
+                            <h4 className="text-sm font-extrabold text-[var(--text-primary)]">{proj.name}</h4>
+                          </div>
+                          {proj.technologies && proj.technologies.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {proj.technologies.map((t: string) => (
+                                <span key={t} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-bold font-mono">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-line">{proj.description}</p>
                         </div>
                       ))
                     ) : (
