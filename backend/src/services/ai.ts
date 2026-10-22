@@ -154,7 +154,11 @@ Output raw JSON only (no markdown code blocks, no trailing comments):
   "feedback": "<Blunt, honest summary comparing code correctness and complexity vs optimal>",
   "strengths": "<Specific correct patterns or logic observed>",
   "weaknesses": "<Specific bugs, failing test cases, syntax errors, or wrong complexity>",
-  "improvements": "<Specific algorithmic fixes and optimal refactoring steps>"
+  "improvements": "<Specific algorithmic fixes and optimal refactoring steps>",
+  "optimalTime": "<Time complexity e.g. O(N)>",
+  "optimalSpace": "<Space complexity e.g. O(1)>",
+  "optimalApproach": "<Summary of optimal algorithmic approach>",
+  "referenceSolution": "<Full optimal solution code in ${cLang}>"
 }
 `;
       const result = await aiModel.generateContent(prompt);
@@ -167,6 +171,11 @@ Output raw JSON only (no markdown code blocks, no trailing comments):
         strengths: parsed.strengths || 'None.',
         weaknesses: parsed.weaknesses || 'None.',
         improvements: parsed.improvements || 'Review optimal solution approach.',
+        optimalTime: parsed.optimalTime || optTime || 'O(N)',
+        optimalSpace: parsed.optimalSpace || optSpace || 'O(1)',
+        optimalApproach: parsed.optimalApproach || optApproach || 'Optimal Greedy / Two Pointers Approach',
+        referenceSolution: parsed.referenceSolution || opts.referenceSolution || null,
+        comparisonSummary: parsed.comparisonSummary || parsed.feedback,
       };
     } catch (error) {
       console.error('Gemini AI evaluation failed. Falling back to simulator:', error);

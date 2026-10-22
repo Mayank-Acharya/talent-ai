@@ -463,9 +463,20 @@ router.get('/points-summary', authenticateToken, async (req: AuthRequest, res: R
       });
     }
 
-    // Default baseline points for student joining / welcome reward
-    const welcomeBonus = 100;
-    const totalPoints = welcomeBonus + practicePoints + arenaPoints + assessmentPoints;
+    // Canonical points from studentProfile (single source of truth)
+    let profile = userId ? await prisma.studentProfile.findUnique({ where: { userId } }) : null;
+    let totalPoints = profile?.points ?? 0;
+
+    // If profile points is 0 but user has earned points from submissions/arena, backfill once
+    const earnedPoints = practicePoints + arenaPoints + assessmentPoints;
+    if (totalPoints === 0 && earnedPoints > 0 && userId) {
+      totalPoints = earnedPoints;
+      await prisma.studentProfile.upsert({
+        where: { userId },
+        update: { points: earnedPoints },
+        create: { userId, points: earnedPoints },
+      });
+    }
 
     let tier = 'Bronze Explorer';
     if (totalPoints >= 1000) tier = 'Grandmaster';
@@ -480,7 +491,6 @@ router.get('/points-summary', authenticateToken, async (req: AuthRequest, res: R
       solvedProblemsCount,
       arenaMatchesCount: arenaMatches.length,
       breakdown: {
-        welcomeBonus,
         practicePoints,
         arenaPoints,
         assessmentPoints,

@@ -12,7 +12,7 @@ import Settings from './pages/Settings';
 import Session from './pages/Session';
 import Arena from './pages/Arena';
 import SolvedTracker from './pages/SolvedTracker';
-import { Crown, Lock, ArrowRight, LogOut, Clock, GraduationCap, Building2 } from 'lucide-react';
+import { Crown, Lock, ArrowRight, LogOut, Clock, GraduationCap, Building2, Award } from 'lucide-react';
 
 export default function App() {
   // Navigation states
@@ -26,6 +26,10 @@ export default function App() {
 
   // Active sidebar tab
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Single Unified Dynamic Student Points & Tier
+  const [studentPoints, setStudentPoints] = useState<number>(0);
+  const [studentTier, setStudentTier] = useState<string>('BRONZE');
 
   // Trial tick state (for countdown updates every 30 seconds)
   const [, setTick] = useState(0);
@@ -74,6 +78,38 @@ export default function App() {
     user?.email === 'admin@talentai.com';
 
   const isStudent = user?.role === 'STUDENT';
+
+  // ── Unified Dynamic Points Synchronization ──
+  useEffect(() => {
+    if (!token || !isStudent) return;
+    const fetchPoints = async () => {
+      try {
+        const res = await fetch('/api/student/points-summary', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStudentPoints(data.points ?? 0);
+          setStudentTier(data.tier ?? 'BRONZE');
+        }
+      } catch (e) {
+        // silently fallback
+      }
+    };
+    fetchPoints();
+
+    const handleUpdate = (e: any) => {
+      if (e.detail?.points !== undefined) {
+        setStudentPoints(e.detail.points);
+        if (e.detail?.tier) setStudentTier(e.detail.tier);
+      } else {
+        fetchPoints();
+      }
+    };
+
+    window.addEventListener('talentai_points_updated', handleUpdate);
+    return () => window.removeEventListener('talentai_points_updated', handleUpdate);
+  }, [token, isStudent]);
 
   // ── Free Trial Logic: 7 Days for Students, 2 Hours for Organizations ──
   const trialDurationMs = isStudent 
@@ -200,6 +236,21 @@ export default function App() {
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto relative">
+          {/* Top-Right Unified Dynamic Points Counter */}
+          {isStudent && (
+            <div
+              onClick={() => setActiveTab('arena')}
+              className="fixed top-3.5 right-6 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)]/90 backdrop-blur-md border border-amber-500/40 text-amber-400 font-bold text-xs shadow-lg shadow-amber-500/10 transition-all hover:scale-105 hover:border-amber-400 cursor-pointer select-none"
+              title="Click to view 1v1 Arena & Global Leaderboard"
+            >
+              <Award className="w-4 h-4 text-amber-400 animate-pulse" />
+              <span className="font-mono text-sm tracking-tight text-amber-300 font-black">{studentPoints} pts</span>
+              <span className="text-[10px] text-amber-400/80 font-black uppercase tracking-wider pl-1.5 border-l border-amber-500/30">
+                {studentTier}
+              </span>
+            </div>
+          )}
+
           {activeTab === 'dashboard'     && <Dashboard token={token} onTabChange={handleTabChange} />}
           {activeTab === 'interviews'    && (!isStudent ? <Interviews token={token} /> : <QuestionBank token={token} />)}
           {activeTab === 'questions'     && <QuestionBank token={token} />}

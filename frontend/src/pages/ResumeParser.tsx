@@ -5,7 +5,7 @@ import {
   GraduationCap, Award, Copy, Check, CheckCircle2, XCircle,
   BarChart2, UserCheck, Layers, Clock, ShieldCheck, Download,
   ExternalLink, Code2, Database, Cloud, Terminal, Compass,
-  TrendingUp, ArrowRight, Printer
+  TrendingUp, ArrowRight, Printer, Eye
 } from 'lucide-react';
 
 interface ResumeParserProps {
@@ -153,7 +153,7 @@ export default function ResumeParser({ token }: ResumeParserProps) {
   };
 
   // Generate & Download Professional PDF Report
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = (autoPrint = false) => {
     if (!parsedResult || !atsBreakdown) return;
 
     const printWindow = window.open('', '_blank', 'width=950,height=1050');
@@ -176,7 +176,43 @@ export default function ResumeParser({ token }: ResumeParserProps) {
         <meta charset="utf-8" />
         <style>
           @page { size: A4; margin: 12mm; }
+          @media print {
+            body { padding: 0 !important; }
+            .no-print { display: none !important; }
+          }
           body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; line-height: 1.5; padding: 20px; background: #fff; }
+          .no-print-bar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            border-bottom: 1px solid #1e293b;
+            margin: -20px -20px 20px -20px;
+          }
+          .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+          }
+          .btn-print { background: #7c3aed; color: #ffffff; }
+          .btn-print:hover { background: #6d28d9; }
+          .btn-download { background: #10b981; color: #ffffff; }
+          .btn-download:hover { background: #059669; }
+          .btn-close { background: #334155; color: #e2e8f0; }
+          .btn-close:hover { background: #475569; }
           .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7c3aed; padding-bottom: 16px; margin-bottom: 20px; }
           .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; background: #f3e8ff; color: #7c3aed; }
           .score-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -189,13 +225,27 @@ export default function ResumeParser({ token }: ResumeParserProps) {
           .tag-missing { background: #fee2e2; color: #991b1b; }
           ul { margin: 6px 0; padding-left: 20px; font-size: 12px; color: #334155; }
           li { margin-bottom: 4px; }
-          @media print {
-            body { padding: 0; }
-            .no-print { display: none; }
-          }
         </style>
       </head>
       <body>
+        <div class="no-print no-print-bar">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-weight:900; font-size:14px; color:#c084fc;">TalentAI ATS Report</span>
+            <span style="font-size:12px; color:#94a3b8;">• ${parsedResult.name}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-action btn-print" onclick="window.print()">
+              🖨️ Save as PDF / Print
+            </button>
+            <button class="btn-action btn-download" onclick="downloadReportHTML()">
+              💾 Download HTML
+            </button>
+            <button class="btn-action btn-close" onclick="window.close()">
+              ✕ Close
+            </button>
+          </div>
+        </div>
+
         <div class="header">
           <div>
             <div class="badge">TalentAI Autonomous ATS Dossier</div>
@@ -285,9 +335,14 @@ export default function ResumeParser({ token }: ResumeParserProps) {
         </div>
 
         <script>
-          window.onload = function() {
-            window.print();
-          };
+          function downloadReportHTML() {
+            var blob = new Blob([document.documentElement.outerHTML], { type: 'text/html' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '${(parsedResult.name || "Candidate").replace(/[^a-zA-Z0-9]/g, "_")}_ATS_Dossier.html';
+            a.click();
+          }
+          ${autoPrint ? 'window.onload = function() { setTimeout(function() { window.print(); }, 400); };' : ''}
         </script>
       </body>
       </html>
@@ -574,12 +629,20 @@ export default function ResumeParser({ token }: ResumeParserProps) {
                       {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
-                    {/* DOWNLOAD IN PDF (Explicitly requested by user) */}
+                    {/* VIEW REPORT & SAVE AS PDF */}
                     <button 
-                      onClick={handleDownloadPDF}
-                      className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black rounded-lg flex items-center gap-1.5 shadow-md shadow-purple-600/25 transition-all"
+                      onClick={() => handleDownloadPDF(false)}
+                      className="px-3.5 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all"
+                      title="View Report in New Tab"
                     >
-                      <Download className="w-3.5 h-3.5" /> Download PDF Report
+                      <Eye className="w-3.5 h-3.5" /> View Report
+                    </button>
+                    <button 
+                      onClick={() => handleDownloadPDF(true)}
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black rounded-lg flex items-center gap-1.5 shadow-md shadow-purple-600/25 transition-all"
+                      title="Save as PDF or Print"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Save as PDF
                     </button>
                   </div>
                 </div>

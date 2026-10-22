@@ -657,7 +657,7 @@ router.get('/matchmaking/status', async (req: AuthRequest, res: Response) => {
       // Selected mode priority
       const battleMode: ArenaMode = myQueueItem.mode || otherEntry.mode || 'MEDIUM';
 
-      const q = await pickUnusedQuestion(userId, otherEntry.userId, battleMode);
+      const q: any = await pickUnusedQuestion(userId, otherEntry.userId, battleMode);
 
       const questionPayload = JSON.stringify({
         text: q.text,
@@ -665,6 +665,10 @@ router.get('/matchmaking/status', async (req: AuthRequest, res: Response) => {
         constraints: q.constraints,
         inputFormat: q.inputFormat,
         outputFormat: q.outputFormat,
+        optimalTime: q.optimalTime || 'O(N)',
+        optimalSpace: q.optimalSpace || 'O(1)',
+        optimalApproach: q.optimalApproach || 'Optimal Greedy / Two Pointers Approach',
+        referenceSolution: q.referenceSolution || null,
       });
 
       const challenge = await prisma.challenge.create({
@@ -717,7 +721,7 @@ router.post('/challenge/create', async (req: AuthRequest, res: Response) => {
     });
     if (existing) return res.status(409).json({ error: 'Challenge already active', challenge: existing });
 
-    const q = await pickUnusedQuestion(challengerId, targetUserId, battleMode);
+    const q: any = await pickUnusedQuestion(challengerId, targetUserId, battleMode);
 
     const questionPayload = JSON.stringify({
       text: q.text,
@@ -725,6 +729,10 @@ router.post('/challenge/create', async (req: AuthRequest, res: Response) => {
       constraints: q.constraints,
       inputFormat: q.inputFormat,
       outputFormat: q.outputFormat,
+      optimalTime: q.optimalTime || 'O(N)',
+      optimalSpace: q.optimalSpace || 'O(1)',
+      optimalApproach: q.optimalApproach || 'Optimal Greedy / Two Pointers Approach',
+      referenceSolution: q.referenceSolution || null,
     });
 
     const challenge = await prisma.challenge.create({
@@ -974,7 +982,7 @@ router.post('/challenge/submit', async (req: AuthRequest, res: Response) => {
     const isChallenger = challenge.challengerId === userId;
     const langName = language || 'cpp';
 
-    let aiEval = {
+    let aiEval: any = {
       score: isCheating ? 0 : 75,
       feedback: isCheating ? 'Cheating detected: Tab switched or copy-pasted. Score set to 0.' : `Code evaluated for ${langName}.`,
       strengths: isCheating ? 'None — integrity violation.' : `Valid ${langName} syntax and logic structures.`,
@@ -987,12 +995,20 @@ router.post('/challenge/submit', async (req: AuthRequest, res: Response) => {
         let rawText = challenge.questionText;
         let rawExamples = undefined;
         let rawConstraints = undefined;
+        let optTime = undefined;
+        let optSpace = undefined;
+        let optApproach = undefined;
+        let refSol = undefined;
         try {
           const parsed = JSON.parse(challenge.questionText);
           if (parsed && typeof parsed === 'object') {
             rawText = parsed.text || rawText;
             rawExamples = parsed.examples;
             rawConstraints = parsed.constraints;
+            optTime = parsed.optimalTime;
+            optSpace = parsed.optimalSpace;
+            optApproach = parsed.optimalApproach;
+            refSol = parsed.referenceSolution;
           }
         } catch {}
 
@@ -1005,6 +1021,10 @@ router.post('/challenge/submit', async (req: AuthRequest, res: Response) => {
           examples: rawExamples,
           constraints: rawConstraints,
           expectedOutput: challenge.expectedOutput || undefined,
+          optimalTime: optTime,
+          optimalSpace: optSpace,
+          optimalApproach: optApproach,
+          referenceSolution: refSol,
         });
         if (result) {
           aiEval = {
@@ -1013,6 +1033,12 @@ router.post('/challenge/submit', async (req: AuthRequest, res: Response) => {
             strengths: result.strengths || aiEval.strengths,
             weaknesses: result.weaknesses || aiEval.weaknesses,
             improvements: result.improvements || aiEval.improvements,
+            optimalTime: result.optimalTime || 'O(N)',
+            optimalSpace: result.optimalSpace || 'O(1)',
+            optimalApproach: result.optimalApproach || 'Optimal Greedy / Two Pointers Approach',
+            referenceSolution: result.referenceSolution || null,
+            testCaseResults: result.testCaseResults || [],
+            comparisonSummary: result.comparisonSummary || null,
           };
         }
       } catch (e) {
@@ -1133,11 +1159,39 @@ router.get('/challenge/result/:id', async (req: AuthRequest, res: Response) => {
     let evalObj = null;
     if (myCode) {
       try {
+        let rawText = challenge.questionText;
+        let rawExamples = undefined;
+        let rawConstraints = undefined;
+        let optTime = undefined;
+        let optSpace = undefined;
+        let optApproach = undefined;
+        let refSol = undefined;
+        try {
+          const parsed = JSON.parse(challenge.questionText);
+          if (parsed && typeof parsed === 'object') {
+            rawText = parsed.text || rawText;
+            rawExamples = parsed.examples;
+            rawConstraints = parsed.constraints;
+            optTime = parsed.optimalTime;
+            optSpace = parsed.optimalSpace;
+            optApproach = parsed.optimalApproach;
+            refSol = parsed.referenceSolution;
+          }
+        } catch {}
+
         evalObj = await evaluateAnswer({
           questionTitle: challenge.questionTitle,
+          questionText: rawText,
           questionType: 'CODING',
           codeContent: myCode,
           language: myLang || 'cpp',
+          examples: rawExamples,
+          constraints: rawConstraints,
+          expectedOutput: challenge.expectedOutput || undefined,
+          optimalTime: optTime,
+          optimalSpace: optSpace,
+          optimalApproach: optApproach,
+          referenceSolution: refSol,
         });
       } catch (e) {}
     }

@@ -5,7 +5,7 @@ import {
   Zap, Clock, Play, Code2, Sparkles, RefreshCw, Search,
   CheckCircle2, AlertCircle, LogOut, Bug, Cpu, ChevronLeft, ChevronRight,
   Image, AlertTriangle, Eye, Loader2, Hourglass, ExternalLink, Flame,
-  UserCheck, MessageSquare, Send, Glasses
+  UserCheck, MessageSquare, Send, Glasses, Copy
 } from 'lucide-react';
 
 interface ArenaProps {
@@ -201,6 +201,7 @@ export default function Arena({ token }: ArenaProps) {
 
   // My submission score & eval
   const [mySubmission, setMySubmission] = useState<{ score: number; eval: any } | null>(null);
+  const [copiedSolution, setCopiedSolution] = useState(false);
 
   // Auto-reset editor code & state whenever a brand new challenge starts
   useEffect(() => {
@@ -271,6 +272,11 @@ export default function Arena({ token }: ArenaProps) {
         const data = await res.json();
         setProfile(data.profile);
         setUserRank(data.rank);
+        if (data.profile?.points !== undefined) {
+          window.dispatchEvent(new CustomEvent('talentai_points_updated', {
+            detail: { points: data.profile.points, tier: data.profile.tier }
+          }));
+        }
       }
     } catch (e) {}
   }, [headers]);
@@ -1379,25 +1385,129 @@ export default function Arena({ token }: ArenaProps) {
 
           {/* AI Eval Report */}
           {mySubmission?.eval && (
-            <div className="p-6 rounded-2xl border space-y-3 shadow-sm" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-              <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--brand)' }}>
-                <Cpu className="w-4 h-4" /> AI Code Inspection Report — {langLabel(language)}
-              </h4>
-              <div className="p-3.5 rounded-xl border text-xs leading-relaxed" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
-                <strong>Feedback: </strong>{mySubmission.eval.feedback}
+            <div className="p-6 rounded-2xl border space-y-4 shadow-sm" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--brand)' }}>
+                  <Cpu className="w-4 h-4" /> Comprehensive Performance & Complexity Report — {langLabel(language)}
+                </h4>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(37,99,235,0.1)', color: 'var(--brand)' }}>
+                  Score: {mySubmission.score}/100
+                </span>
               </div>
+
+              {/* Performance Metrics: Time & Space Complexity Matrix */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl border flex items-center justify-between" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-muted)' }}>Time Complexity Benchmark</span>
+                    <span className="text-sm font-mono font-black" style={{ color: '#10b981' }}>
+                      {mySubmission.eval.optimalTime || 'O(N)'}
+                    </span>
+                  </div>
+                  <Clock className="w-5 h-5 text-emerald-400 opacity-80" />
+                </div>
+                <div className="p-3.5 rounded-xl border flex items-center justify-between" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-muted)' }}>Space Complexity Benchmark</span>
+                    <span className="text-sm font-mono font-black" style={{ color: '#3b82f6' }}>
+                      {mySubmission.eval.optimalSpace || 'O(1)'}
+                    </span>
+                  </div>
+                  <Cpu className="w-5 h-5 text-blue-400 opacity-80" />
+                </div>
+              </div>
+
+              {/* Feedback Summary */}
+              <div className="p-3.5 rounded-xl border text-xs leading-relaxed" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
+                <strong className="text-blue-400 font-bold">Performance Summary: </strong>{mySubmission.eval.feedback}
+              </div>
+
+              {/* Optimal Approach Explanation */}
+              {mySubmission.eval.optimalApproach && (
+                <div className="p-3.5 rounded-xl border text-xs" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}>
+                  <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: '#f59e0b' }}>
+                    <Sparkles className="w-3.5 h-3.5" /> Optimal Algorithmic Approach
+                  </p>
+                  <p style={{ color: 'var(--text-primary)' }}>{mySubmission.eval.optimalApproach}</p>
+                </div>
+              )}
+
+              {/* Flaws & Bugs */}
               <div className="p-3.5 rounded-xl border text-xs" style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.25)' }}>
-                <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: '#ef4444' }}><Bug className="w-3.5 h-3.5" /> Bugs & Flaws Flagged</p>
+                <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: '#ef4444' }}>
+                  <Bug className="w-3.5 h-3.5" /> Bugs & Flaws Flagged
+                </p>
                 <p style={{ color: 'var(--text-primary)' }}>{mySubmission.eval.weaknesses}</p>
               </div>
+
+              {/* Strengths */}
               <div className="p-3.5 rounded-xl border text-xs" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.25)' }}>
-                <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: '#10b981' }}><CheckCircle2 className="w-3.5 h-3.5" /> Strengths</p>
+                <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: '#10b981' }}>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Strengths Identified
+                </p>
                 <p style={{ color: 'var(--text-primary)' }}>{mySubmission.eval.strengths}</p>
               </div>
+
+              {/* Recommended Refactoring */}
               <div className="p-3.5 rounded-xl border text-xs" style={{ background: 'rgba(37,99,235,0.06)', borderColor: 'rgba(37,99,235,0.25)' }}>
-                <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: 'var(--brand)' }}><Sparkles className="w-3.5 h-3.5" /> Recommended Refactoring</p>
+                <p className="font-bold flex items-center gap-1.5 mb-1 text-[11px]" style={{ color: 'var(--brand)' }}>
+                  <Sparkles className="w-3.5 h-3.5" /> Recommended Refactoring Steps
+                </p>
                 <p style={{ color: 'var(--text-primary)' }}>{mySubmission.eval.improvements}</p>
               </div>
+
+              {/* Test Cases Results Breakdown */}
+              {mySubmission.eval.testCaseResults && mySubmission.eval.testCaseResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                    <Code2 className="w-3.5 h-3.5" /> Test Case Execution Matrix
+                  </p>
+                  <div className="space-y-1.5">
+                    {mySubmission.eval.testCaseResults.map((tc: any, idx: number) => (
+                      <div key={idx} className="p-2.5 rounded-lg border text-xs flex items-center justify-between" style={{
+                        background: tc.passed ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.05)',
+                        borderColor: tc.passed ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
+                      }}>
+                        <div className="space-y-0.5">
+                          <span className="font-mono text-[11px]" style={{ color: 'var(--text-primary)' }}>Case #{idx + 1}: Input: <code>{tc.input}</code></span>
+                          <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                            Expected: <span className="text-emerald-400">{tc.expected}</span> | Actual: <span className={tc.passed ? 'text-emerald-400' : 'text-rose-400'}>{tc.actual}</span>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${tc.passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {tc.passed ? 'Passed' : 'Failed'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Official Correct / Optimal Solution */}
+              {(mySubmission.eval.referenceSolution || activeChallenge?.referenceSolution) && (
+                <div className="p-4 rounded-xl border space-y-2 mt-4" style={{ background: '#090d16', borderColor: 'rgba(59,130,246,0.4)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-blue-400 flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-blue-400" /> Official Correct / Optimal Solution ({langLabel(language)})
+                    </span>
+                    <button
+                      onClick={() => {
+                        const solCode = mySubmission.eval.referenceSolution || activeChallenge?.referenceSolution;
+                        navigator.clipboard.writeText(solCode);
+                        setCopiedSolution(true);
+                        setTimeout(() => setCopiedSolution(false), 2000);
+                      }}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      {copiedSolution ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedSolution ? 'Copied!' : 'Copy Solution'}</span>
+                    </button>
+                  </div>
+                  <pre className="p-3 rounded-lg bg-black/60 text-slate-200 text-xs font-mono border border-blue-900/40 leading-relaxed whitespace-pre-wrap">
+                    <code>{mySubmission.eval.referenceSolution || activeChallenge?.referenceSolution}</code>
+                  </pre>
+                </div>
+              )}
             </div>
           )}
 

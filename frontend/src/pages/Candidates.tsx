@@ -5,7 +5,7 @@ import {
   TrendingUp, Sliders, CheckCircle, Copy, AlertTriangle,
   Play, X, BarChart3, Code2, Clock, Zap, Brain,
   CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2,
-  Target, PercentSquare, Hash, Search, Share2, Trash2
+  Target, PercentSquare, Hash, Search, Share2, Trash2, Eye
 } from 'lucide-react';
 
 interface CandidatesProps { token: string; user?: any; }
@@ -137,7 +137,7 @@ const PIPELINE_COLS = [
 ];
 
 /* PDF Report Generator */
-const downloadCandidatePDF = (candidate: any) => {
+const downloadCandidatePDF = (candidate: any, autoPrint = false) => {
   if (!candidate) return;
   const printWindow = window.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) return alert('Please allow popups to download the PDF evaluation report.');
@@ -152,7 +152,43 @@ const downloadCandidatePDF = (candidate: any) => {
       <title>TalentAI Candidate Technical Evaluation Report - ${candidate.name}</title>
       <style>
         @page { size: A4; margin: 15mm; }
+        @media print {
+          .no-print { display: none !important; }
+          body { padding: 0 !important; }
+        }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; line-height: 1.5; padding: 24px; background: #fff; }
+        .no-print-bar {
+          position: sticky;
+          top: 0;
+          z-index: 1000;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 12px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+          border-bottom: 1px solid #1e293b;
+          margin: -24px -24px 24px -24px;
+        }
+        .btn-action {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          border: none;
+          transition: all 0.2s;
+        }
+        .btn-print { background: #2563eb; color: #ffffff; }
+        .btn-print:hover { background: #1d4ed8; }
+        .btn-download { background: #10b981; color: #ffffff; }
+        .btn-download:hover { background: #059669; }
+        .btn-close { background: #334155; color: #e2e8f0; }
+        .btn-close:hover { background: #475569; }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }
         .brand { font-size: 24px; font-weight: 900; color: #2563eb; letter-spacing: -0.5px; }
         .title { font-size: 13px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
@@ -189,6 +225,24 @@ const downloadCandidatePDF = (candidate: any) => {
       </style>
     </head>
     <body>
+      <div class="no-print no-print-bar">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-weight:900; font-size:14px; color:#38bdf8;">TalentAI Candidate Report</span>
+          <span style="font-size:12px; color:#94a3b8;">• ${candidate.name}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-action btn-print" onclick="window.print()">
+            🖨️ Save as PDF / Print
+          </button>
+          <button class="btn-action btn-download" onclick="downloadReportHTML()">
+            💾 Download HTML
+          </button>
+          <button class="btn-action btn-close" onclick="window.close()">
+            ✕ Close
+          </button>
+        </div>
+      </div>
+
       <div class="header">
         <div>
           <div class="brand">TalentAI Assessment Engine</div>
@@ -301,9 +355,14 @@ const downloadCandidatePDF = (candidate: any) => {
       </div>
 
       <script>
-        window.onload = function() {
-          window.print();
-        };
+        function downloadReportHTML() {
+          var blob = new Blob([document.documentElement.outerHTML], { type: 'text/html' });
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = '${(candidate.name || "Candidate").replace(/[^a-zA-Z0-9]/g, "_")}_TalentAI_Report.html';
+          a.click();
+        }
+        ${autoPrint ? 'window.onload = function() { setTimeout(function() { window.print(); }, 400); };' : ''}
       </script>
     </body>
     </html>
@@ -1070,24 +1129,42 @@ export default function Candidates({ token, user }: CandidatesProps) {
                             {durationStr}
                           </td>
 
-                          {/* Download PDF */}
-                          <td style={{ textAlign: 'right' }}>
-                            <button
-                              onClick={async e => {
-                                e.stopPropagation();
-                                // load detail then download PDF
-                                const res = await fetch(`/api/candidates/${candidateId}`, { headers: { Authorization: `Bearer ${token}` } });
-                                const data = await res.json();
-                                if (res.ok && data.candidate) downloadCandidatePDF(data.candidate);
-                              }}
-                              style={{
-                                padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 800,
-                                background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-                                color: '#16a34a', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
-                              }}
-                            >
-                              <FileText style={{ width: 11, height: 11 }} /> PDF
-                            </button>
+                          {/* Actions: View and PDF */}
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <button
+                                onClick={async e => {
+                                  e.stopPropagation();
+                                  const res = await fetch(`/api/candidates/${candidateId}`, { headers: { Authorization: `Bearer ${token}` } });
+                                  const data = await res.json();
+                                  if (res.ok && data.candidate) downloadCandidatePDF(data.candidate, false);
+                                }}
+                                style={{
+                                  padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 800,
+                                  background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.25)',
+                                  color: '#2563eb', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+                                }}
+                                title="View Interactive Report in New Tab"
+                              >
+                                <Eye style={{ width: 11, height: 11 }} /> View
+                              </button>
+                              <button
+                                onClick={async e => {
+                                  e.stopPropagation();
+                                  const res = await fetch(`/api/candidates/${candidateId}`, { headers: { Authorization: `Bearer ${token}` } });
+                                  const data = await res.json();
+                                  if (res.ok && data.candidate) downloadCandidatePDF(data.candidate, true);
+                                }}
+                                style={{
+                                  padding: '5px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 800,
+                                  background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                                  color: '#16a34a', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+                                }}
+                                title="Save as PDF or Print"
+                              >
+                                <FileText style={{ width: 11, height: 11 }} /> PDF
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1623,7 +1700,21 @@ export default function Candidates({ token, user }: CandidatesProps) {
                   <Trash2 style={{ width: 13, height: 13 }} /> Delete
                 </button>
                 <button
-                  onClick={() => downloadCandidatePDF(candidateDetail)}
+                  onClick={() => downloadCandidatePDF(candidateDetail, false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '7px 14px', borderRadius: 9,
+                    border: '1px solid rgba(37,99,235,0.3)',
+                    background: 'rgba(37,99,235,0.08)',
+                    color: 'var(--brand)', fontSize: '0.78rem', fontWeight: 800,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                  title="View Report in New Tab"
+                >
+                  <Eye style={{ width: 14, height: 14 }} /> View Report
+                </button>
+                <button
+                  onClick={() => downloadCandidatePDF(candidateDetail, true)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '7px 14px', borderRadius: 9, border: 'none',
@@ -1632,8 +1723,9 @@ export default function Candidates({ token, user }: CandidatesProps) {
                     cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
                     whiteSpace: 'nowrap',
                   }}
+                  title="Save as PDF or Print"
                 >
-                  <FileText style={{ width: 14, height: 14 }} /> Download Detailed PDF Report
+                  <FileText style={{ width: 14, height: 14 }} /> Save as PDF
                 </button>
                 <button onClick={() => { setSelectedCandidate(null); setCandidateDetail(null); }}
                   style={{

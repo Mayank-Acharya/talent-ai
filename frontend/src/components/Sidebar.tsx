@@ -407,25 +407,6 @@ export default function Sidebar({
                   }}>
                     {badgeLabel}
                   </p>
-                  {isStudent && (
-                    <div style={{
-                      marginTop: 4,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      background: 'rgba(245, 158, 11, 0.12)',
-                      border: '1px solid rgba(245, 158, 11, 0.3)',
-                      color: '#d97706',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      boxShadow: '0 2px 6px rgba(245, 158, 11, 0.08)',
-                    }}>
-                      <span>⭐</span>
-                      <span>{studentPoints.toLocaleString()} Points</span>
-                    </div>
-                  )}
                 </div>
               </>
             );
