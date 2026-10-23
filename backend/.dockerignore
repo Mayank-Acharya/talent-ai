@@ -3,7 +3,10 @@ dist
 .env
 .git
 *.db
+**/*.db
+prisma/*.db
 *.db-journal
+**/*.db-journal
 *.log
 npm-debug.log*
 uploads

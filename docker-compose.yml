@@ -1,19 +1,56 @@
-version: '3.8'
-
 services:
-  # ── Backend Node.js API Service ──
+  # ── PostgreSQL Database Service (Only accessible to Backend & Prisma) ──
+  db:
+    image: postgres:16-alpine
+    container_name: talentai_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: talentai
+    # No ports exposed to host machine -> completely private & protected
+    volumes:
+      # Persistent PostgreSQL data storage
+      - talentai_db_data:/var/lib/postgresql/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d talentai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Dedicated Prisma Container (Schema Push, Migrations & Prisma Studio GUI) ──
+  prisma:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prisma
+    container_name: talentai_prisma
+    restart: unless-stopped
+    ports:
+      # Prisma Studio Web GUI accessible in your browser at http://localhost:5555
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/talentai?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_net
+
+  # ── Backend Node.js API Service (Isolated; No direct external access) ──
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: talentai_backend
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    # No host ports mapped -> external clients cannot bypass Nginx to reach backend directly
     environment:
       - PORT=5000
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://neondb_owner:npg_WsLxMPkc98pl@ep-divine-tree-b5nb93t1-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      # Connected internally to 'db' container over the isolated backend_net bridge
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/talentai?schema=public
       - JWT_SECRET=mock-jwt-secret-for-local-development-987654
       - UPI_ID=30062006@cnrb
       - UPI_NAME=MAYANK KUMAR ACHARYA
@@ -23,10 +60,16 @@ services:
     volumes:
       # Persistent storage volume for candidate resumes & recorded interview videos
       - talentai_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      prisma:
+        condition: service_started
     networks:
-      - talentai_network
+      - frontend_net
+      - backend_net
 
-  # ── Frontend React + Nginx Web Server ──
+  # ── Frontend React + Nginx Web Server (The SINGLE public entrypoint) ──
   frontend:
     build:
       context: ./frontend
@@ -34,19 +77,24 @@ services:
     container_name: talentai_frontend
     restart: unless-stopped
     ports:
-      # Accessible on both standard Port 80 and Port 3000
+      # The only public gateways into your application
       - "80:80"
       - "3000:80"
     depends_on:
       - backend
     networks:
-      - talentai_network
+      - frontend_net
 
 volumes:
   talentai_uploads:
     name: talentai_uploads
+  talentai_db_data:
+    name: talentai_db_data
 
 networks:
-  talentai_network:
-    name: talentai_network
+  frontend_net:
+    name: talentai_frontend_net
+    driver: bridge
+  backend_net:
+    name: talentai_backend_net
     driver: bridge
