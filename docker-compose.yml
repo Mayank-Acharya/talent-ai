@@ -20,16 +20,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Dedicated Prisma Container (Schema Push, Migrations & Prisma Studio GUI) ──
+  # ── Dedicated Prisma Container (Schema Push, Migrations & Database Sync) ──
   prisma:
     build:
       context: ./backend
       dockerfile: Dockerfile.prisma
     container_name: talentai_prisma
     restart: unless-stopped
-    ports:
-      # Prisma Studio Web GUI accessible in your browser at http://localhost:5555
-      - "5555:5555"
+    # No ports exposed to host or outside -> 100% private internal container
     environment:
       - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/talentai?schema=public
     depends_on:
